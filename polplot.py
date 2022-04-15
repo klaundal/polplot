@@ -6,7 +6,7 @@ import apexpy
 from matplotlib import rc
 from matplotlib.patches import Polygon
 from matplotlib.collections import PolyCollection, LineCollection
-from pysymmetry.sunlight import terminator
+#from pysymmetry.sunlight import terminator
 
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -325,86 +325,86 @@ class Polarplot(object):
         return self.ax.fill(xx, yy, **kwargs)
 
 
-    def plot_terminator(self, position, sza = 90, north = True, shadecolor = None, terminatorcolor = 'black', terminatorlinewidth = 1, shadelinewidth = 0, **kwargs):
-        """ shade the area antisunward of the terminator
+    # def plot_terminator(self, position, sza = 90, north = True, shadecolor = None, terminatorcolor = 'black', terminatorlinewidth = 1, shadelinewidth = 0, **kwargs):
+    #     """ shade the area antisunward of the terminator
 
-            position            -- either a scalar or a datetime object
-                                  if scalar: interpreted as the signed magnetic colatitude of the terminator, positive on dayside, negative on night side
-                                  if datetime: terminator is calculated, and converted to magnetic apex coordinates (refh = 0, height = 0)
-            sza                 -- sza to locate terminator, used if position is datetime
-            north               -- True if northern hemisphere, south if not (only matters if position is datetime)
-            shadecolor               -- color of the shaded area - default None
-            shadelinewidth           -- width of the contour surrounding the shaded area - default 0 (invisible)
-            terminatorcolor     -- color of the terminator - default black
-            terminatorlinewidth -- width of the terminator contour
-            **kwargs            -- passed to Polygon
-
-
-            EXAMPLE: to only plot the terminator (no shade):
-            plot_terminator(position, color = 'white') <- sets the shade to white (or something different if the plot background is different)
+    #         position            -- either a scalar or a datetime object
+    #                               if scalar: interpreted as the signed magnetic colatitude of the terminator, positive on dayside, negative on night side
+    #                               if datetime: terminator is calculated, and converted to magnetic apex coordinates (refh = 0, height = 0)
+    #         sza                 -- sza to locate terminator, used if position is datetime
+    #         north               -- True if northern hemisphere, south if not (only matters if position is datetime)
+    #         shadecolor               -- color of the shaded area - default None
+    #         shadelinewidth           -- width of the contour surrounding the shaded area - default 0 (invisible)
+    #         terminatorcolor     -- color of the terminator - default black
+    #         terminatorlinewidth -- width of the terminator contour
+    #         **kwargs            -- passed to Polygon
 
 
-            useful extensions:
-            - height dependence...
-        """
+    #         EXAMPLE: to only plot the terminator (no shade):
+    #         plot_terminator(position, color = 'white') <- sets the shade to white (or something different if the plot background is different)
 
-        if np.isscalar(position): # set the terminator as a horizontal bar
-            if position >= 0: # dayside
-                position = np.min([90 - self.minlat, position])
-                x0, y0 = self._mltMlatToXY(12, 90 - np.abs(position))
-            else: #nightside
-                x0, y0 = self._mltMlatToXY(24, 90 - np.abs(position))
 
-            xr = np.sqrt(1 - y0**2)
-            xl = -xr
-            lat, left_mlt  = self._XYtomltMlat(xl, y0)
-            lat, right_mlt = self._XYtomltMlat(xr, y0)
-            if position > -(90 - self.minlat):
-                right_mlt += 24
+    #         useful extensions:
+    #         - height dependence...
+    #     """
 
-            x = np.array([xl, xr])
-            y = np.array([y0, y0])
+    #     if np.isscalar(position): # set the terminator as a horizontal bar
+    #         if position >= 0: # dayside
+    #             position = np.min([90 - self.minlat, position])
+    #             x0, y0 = self._mltMlatToXY(12, 90 - np.abs(position))
+    #         else: #nightside
+    #             x0, y0 = self._mltMlatToXY(24, 90 - np.abs(position))
 
-        else: # calculate the terminator trajectory
-            a = apexpy.Apex(date = position)
+    #         xr = np.sqrt(1 - y0**2)
+    #         xl = -xr
+    #         lat, left_mlt  = self._XYtomltMlat(xl, y0)
+    #         lat, right_mlt = self._XYtomltMlat(xr, y0)
+    #         if position > -(90 - self.minlat):
+    #             right_mlt += 24
 
-            t_glat, t_glon = terminator(position, sza = sza, resolution = 3600)
-            t_mlat, t_mlon = a.geo2apex(t_glat, t_glon, 0)
-            t_mlt          = a.mlon2mlt(t_mlon, position)
+    #         x = np.array([xl, xr])
+    #         y = np.array([y0, y0])
 
-            # limit contour to correct hemisphere:
-            iii = (t_mlat >= self.minlat) if north else (t_mlat <= -self.minlat)
-            if len(iii) == 0:
-                return 0 # terminator is outside plot
-            t_mlat = t_mlat[iii]
-            t_mlt = t_mlt[iii]
+    #     else: # calculate the terminator trajectory
+    #         a = apexpy.Apex(date = position)
 
-            x, y = self._mltMlatToXY(t_mlt, t_mlat)
+    #         t_glat, t_glon = terminator(position, sza = sza, resolution = 3600)
+    #         t_mlat, t_mlon = a.geo2apex(t_glat, t_glon, 0)
+    #         t_mlt          = a.mlon2mlt(t_mlon, position)
 
-            # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
-            xmin = np.argmin(x)
-            xmax = np.argmax(x)
-            left_mlt = t_mlt[xmin]
-            right_mlt = t_mlt[xmax]
-            if right_mlt < left_mlt:
-                right_mlt += 24
+    #         # limit contour to correct hemisphere:
+    #         iii = (t_mlat >= self.minlat) if north else (t_mlat <= -self.minlat)
+    #         if len(iii) == 0:
+    #             return 0 # terminator is outside plot
+    #         t_mlat = t_mlat[iii]
+    #         t_mlt = t_mlt[iii]
 
-        mlat_b = np.full(100, self.minlat)
-        mlt_b  = np.linspace(left_mlt, right_mlt, 100)
-        xb, yb = self._mltMlatToXY(mlt_b, mlat_b)
+    #         x, y = self._mltMlatToXY(t_mlt, t_mlat)
 
-        # sort x and y to be in ascending order
-        iii = np.argsort(x)
-        x = x[iii[::-1]]
-        y = y[iii[::-1]]
+    #         # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
+    #         xmin = np.argmin(x)
+    #         xmax = np.argmax(x)
+    #         left_mlt = t_mlt[xmin]
+    #         right_mlt = t_mlt[xmax]
+    #         if right_mlt < left_mlt:
+    #             right_mlt += 24
 
-        if terminatorcolor is not None:
-            self.ax.plot(x, y, color = terminatorcolor, linewidth = terminatorlinewidth)
-        if shadecolor is not None:
-            kwargs['color'] = shadecolor
-            kwargs['linewidth'] = shadelinewidth
-            shade = Polygon(np.vstack((np.hstack((x, xb)), np.hstack((y, yb)))).T, closed = True, **kwargs)
-            self.ax.add_patch(shade)
+    #     mlat_b = np.full(100, self.minlat)
+    #     mlt_b  = np.linspace(left_mlt, right_mlt, 100)
+    #     xb, yb = self._mltMlatToXY(mlt_b, mlat_b)
+
+    #     # sort x and y to be in ascending order
+    #     iii = np.argsort(x)
+    #     x = x[iii[::-1]]
+    #     y = y[iii[::-1]]
+
+    #     if terminatorcolor is not None:
+    #         self.ax.plot(x, y, color = terminatorcolor, linewidth = terminatorlinewidth)
+    #     if shadecolor is not None:
+    #         kwargs['color'] = shadecolor
+    #         kwargs['linewidth'] = shadelinewidth
+    #         shade = Polygon(np.vstack((np.hstack((x, xb)), np.hstack((y, yb)))).T, closed = True, **kwargs)
+    #         self.ax.add_patch(shade)
 
 
 
