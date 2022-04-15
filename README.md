@@ -20,7 +20,7 @@ pax.contourf(mlat, mlt, Z)
 # and so on. The functions are wrappers for the corresponding matplotlib function
 # so you can use the same set of keywords to manipulate lines, colors, etc. 
 ```
-
+The `pax` object above has the original matplotlib.axes subplot object as a member variable called `ax`. 
 
 ## Note:
 Not everything in the code is well documented, and there may be errors. If in doubt, please ask. It is published here as is because we use it in many other projects. 
