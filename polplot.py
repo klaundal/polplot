@@ -195,7 +195,7 @@ class Polarplot(object):
 
             segments.append([(x, y), (x + dx*scale, y + dy*scale)])
 
-                
+
         self.ax.add_collection(LineCollection(segments, colors = colors, **kwargs))
 
         if markersize != 0:
@@ -465,17 +465,34 @@ class Polarplot(object):
 
         self.ax.add_collection(coll)
 
-    def showFUVimage(self,img,inImg='image', crange = None, bgcolor = None, **kwargs):
-        """ show FUV image """
+    def plotimg(self,mlat,mlt,image,corr=True , crange = None, bgcolor = None, **kwargs):
+        """
+        Displays an image in polar coordinates.
+        mlat,mlt,image are m x n arrays.
+        If corr == True, mlat and mlt are corrected to edge coordinates. The plotted image is (m-2) x (n-2)
+        If corr == False, mlat and mlat are assumed to be edge coordinates (plotted with a small offset). The plotted image is (m-1) x (n-1).
+        crange is a tuple giving lower and upper colormap limits.
+        bgcolor is a str giving background color inside the polar region.
+        """
 
-        mlat = img['mlat'].values.copy()
-        mlt = img['mlt'].values.copy()
-        image = img[inImg].values.copy()
+        x,y =self._mltMlatToXY(mlt,mlat)
+        if corr:
+            xe = np.full(np.subtract(x.shape,(1,1)),np.nan)
+            ye = np.full(np.subtract(y.shape,(1,1)),np.nan)
+            for i in range(xe.shape[0]):
+                for j in range(xe.shape[1]):
+                    xe[i,j]=np.mean(x[i:i+2,j:j+2])
+                    ye[i,j]=np.mean(y[i:i+2,j:j+2])
+            x=xe
+            y=ye
+            data = image[1:-1,1 :-1]
+        else:
+            data = image[1:, :-1]
 
-        ll = self._mltMlatToXY(mlt[1:,  :-1].flatten(), mlat[1:,  :-1].flatten())
-        lr = self._mltMlatToXY(mlt[1:,   1:].flatten(), mlat[1:,   1:].flatten())
-        ul = self._mltMlatToXY(mlt[:-1, :-1].flatten(), mlat[:-1, :-1].flatten())
-        ur = self._mltMlatToXY(mlt[:-1,  1:].flatten(), mlat[:-1,  1:].flatten())
+        ll = (x[1:,  :-1].flatten(), y[1:,  :-1].flatten())
+        lr = (x[1:,   1:].flatten(), y[1:,   1:].flatten())
+        ul = (x[:-1, :-1].flatten(), y[:-1, :-1].flatten())
+        ur = (x[:-1,  1:].flatten(), y[:-1,  1:].flatten())
 
         vertsx = np.vstack((ll[0], lr[0], ur[0], ul[0])).T
         vertsy = np.vstack((ll[1], lr[1], ur[1], ul[1])).T
@@ -494,7 +511,7 @@ class Polarplot(object):
         else:
             cmap = plt.cm.viridis
 
-        coll = PolyCollection(verts, array=image[1:, :-1].flatten()[iii], cmap = cmap, edgecolors='none', **kwargs)
+        coll = PolyCollection(verts, array=data.flatten()[iii], cmap = cmap, edgecolors='none', **kwargs)
         if crange is not None:
             coll.set_clim(crange[0], crange[1])
 
@@ -556,7 +573,7 @@ class Polarplot(object):
 
 
 
-        if cbar: 
+        if cbar:
 
             clim = coll.get_clim()
             axpos = self.ax.get_position().bounds # position of current plot
@@ -571,7 +588,7 @@ class Polarplot(object):
             verts = np.empty((RESOLUTION, 4, 2))
             for i in range(RESOLUTION):
                 verts[i, :, :] = np.array([[0, 0, 1, 1], [colors[i], colors[i+1], colors[i+1], colors[i]]]).T
-            
+
             cbarcoll = PolyCollection(verts, array = np.linspace(clim[0], clim[1], RESOLUTION), cmap = cmap, edgecolors='none')
             cbarcoll.set_clim(clim)
             cbax.add_collection(cbarcoll)
