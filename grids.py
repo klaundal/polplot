@@ -267,6 +267,7 @@ def _fast_bin(grid, mlat, mlon,
 
     SMH 2021/04/15
     Modified by JPR 2021/10/20
+    2022-05-02: JPR added nan handling
     """
 
     mlon = mlon * 15 if mlt is True else mlon
@@ -280,6 +281,7 @@ def _fast_bin(grid, mlat, mlon,
     nlons = np.array([len(np.unique(grid[1][grid[0] == lat])) for lat in llat])
 
     # normalize all longitude bins to the equatorward ring:
+    latbin_n[~np.isfinite(mlat)] = -1 #in the digitize function, nans get an index of latbins.shape[0]+1, making the next line crash. Hence this fix/hack.
     _lon = mlon * nlons[latbin_n] / nlons[0]
 
     # make longitude bin edges for the equatorward ring:
@@ -291,9 +293,9 @@ def _fast_bin(grid, mlat, mlon,
     # map from 2D bin numbers to 1D by adding the number of bins in each row equatorward:
     bin_n = lonbin_n + np.cumsum(np.hstack((0, nlons)))[latbin_n]
 
-    #Set the bin number of outside grid observations to -1
-    outside = bin_n == grid.shape[1]
-    bin_n[outside] = -1
+    #Set the bin number of outside grid observations and nans to -1
+    useless = bin_n >= grid.shape[1] #includung outside and nans
+    bin_n[useless] = -1
 
     return bin_n
 
