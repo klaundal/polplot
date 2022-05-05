@@ -40,6 +40,27 @@ class Polarplot(object):
             plotarrows(mlats, mlts, north, east) - works like plt.arrow (accepts **kwargs too)
             contour(mlat, mlt, f)                - works like plt.contour
             contourf(mlat, mlt, f)               - works like plt.contourf
+        
+
+        Parameters
+        ----------
+        ax : TYPE
+            DESCRIPTION.
+        minlat : TYPE, optional
+            DESCRIPTION. The default is 50.
+        plotgrid : TYPE, optional
+            DESCRIPTION. The default is True.
+        sector : string, optional
+            Used to generate portions of polar plot.
+            Can either use one of the folling strings: 'All', 'dusk',
+            'dawn', 'night', 'day'. Or can be defined using numbers for example '18-6' will produce
+            the samem as night while '6-18' will produce the same as day. The default is 'all'.
+        **kwargs : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
 
         """
         self.minlat = minlat # the lower latitude boundary of the plot
@@ -103,7 +124,30 @@ class Polarplot(object):
         return self.ax.plot(x, y, **kwargs)
 
     def write(self, mlat, mlt, text, bypass=False, **kwargs):
-        """ write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text"""
+        """
+        write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text
+
+        Parameters
+        ----------
+        mlat : TYPE
+            DESCRIPTION.
+        mlt : TYPE
+            DESCRIPTION.
+        text : TYPE
+            DESCRIPTION.
+        bypass : boolean, optional
+            When True the conversion will ignore the limits of the plot allowing plotting outside
+            the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
+
+        **kwargs : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
         x, y = self._mltMlatToXY(mlt, mlat, bypass=bypass)
 
         return self.ax.text(x, y, text, **kwargs)
@@ -682,23 +726,79 @@ class Polarplot(object):
             
         return plots
 
-    def _mltMlatToXY(self, mlt, mlat):
-        mlt = np.asarray(mlt)
-        mlat = np.asarray(mlat)
+    def _mltMlatToXY(self, mlt, mlat, bypass=False):
+        """
+
+        Parameters
+        ----------
+        mlt : TYPE
+            DESCRIPTION.
+        mlat : TYPE
+            DESCRIPTION.
+        bypass : boolean, optional
+            When True the conversion will ignore the limits of the plot allowing plotting outside
+            the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
+
+        Raises
+        ------
+        ValueError
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        mlt = np.asarray(mlt, dtype='float64').copy()
+        mlat = np.asarray(mlat, dtype='float64').copy()
+        if not bypass:
+            nan_index= (~eval(self.mltlims)) | (mlat<self.minlat)
+        else:
+            nan_index= np.bool8(np.zeros_like(mlat))
+        if mlt.shape!= mlat.shape:
+            raise ValueError('x and y must be the same size')
+        mlt[nan_index]=np.nan
+        mlat[nan_index]=np.nan
         r = (90. - np.abs(mlat))/(90. - self.minlat)
         a = (mlt - 6.)/12.*np.pi
 
         return r*np.cos(a), r*np.sin(a)
 
-    def _XYtomltMlat(self, x, y):
-        """ convert x, y to mlt, mlat, where x**2 + y**2 = 1 corresponds to self.minlat """
-        x, y = np.array(x, ndmin = 1), np.array(y, ndmin = 1) # conver to array to allow item assignment
+    def _XYtomltMlat(self, x, y, bypass=False):
+        """
+        convert x, y to mlt, mlat, where x**2 + y**2 = 1 corresponds to self.minlat
+
+        Parameters
+        ----------
+        x : float/integer/list/array
+            DESCRIPTION.
+        y : TYPE
+            DESCRIPTION.
+        bypass : boolean, optional
+            When True the conversion will ignore the limits of the plot allowing plotting outside
+            the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+        TYPE
+            DESCRIPTION.
+
+        """
+        x, y = np.array(x, ndmin = 1, dtype='float64'), np.array(y, ndmin = 1, dtype='float64') # convert to array to allow item assignment
 
         lat = 90 - np.sqrt(x**2 + y**2)*(90. - self.minlat)
         mlt = np.arctan2(y, x)*12/np.pi + 6
         mlt[mlt < 0] += 24
         mlt[mlt > 24] -= 24
-
+        if not bypass:
+            nan_index= (~eval(self.mltlims)) | (lat<self.minlat)
+        else:
+            nan_index= np.bool8(np.zeros_like(x))
+        mlt[nan_index]=np.nan
+        lat[nan_index]=np.nan
         return lat.squeeze()[()], mlt.squeeze()[()]
 
 
