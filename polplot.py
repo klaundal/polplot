@@ -2,7 +2,6 @@ from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import griddata
-import apexpy
 from matplotlib import rc
 from matplotlib.patches import Polygon
 from matplotlib.collections import PolyCollection, LineCollection
@@ -46,8 +45,7 @@ class Polarplot(object):
         self.minlat = minlat # the lower latitude boundary of the plot
         self.ax = ax
         self.ax.axis('equal')
-        self.minlat = minlat
-
+        self.in_axes= ax.in_axes
         self.sector = sector
 
         if 'linewidth' not in kwargs.keys():
@@ -59,22 +57,39 @@ class Polarplot(object):
         if 'linestyle' not in kwargs.keys():
             kwargs['linestyle'] = '--'
 
-
         if sector == 'all':
             self.ax.set_xlim(-1.1, 1.1)
             self.ax.set_ylim(-1.1, 1.1)
-        if sector == 'dusk':
+            self.mltlims= 'mlt>-9.999e3'
+        elif sector == 'dusk':
             self.ax.set_xlim(-1.1, 0.1)
             self.ax.set_ylim(-1.1, 1.1)
-        if sector == 'dawn':
+            self.mltlims= '(mlt>=12) | (mlt<=0)'
+        elif sector == 'dawn':
             self.ax.set_xlim(-0.1, 1.1)
             self.ax.set_ylim(-1.1, 1.1)
-        if sector == 'night':
+            self.mltlims= '(mlt>=24) | (mlt<=12)'
+        elif sector == 'night':
             self.ax.set_xlim(-1.1, 1.1)
             self.ax.set_ylim(-1.1, 0.1)
-        if sector == 'day':
+            self.mltlims= '(mlt>=18) | (mlt<=6)'
+        elif sector == 'day':
             self.ax.set_xlim(-1.1, 1.1)
             self.ax.set_ylim(-0.1, 1.1)
+            self.mltlims= '(mlt>=6) & (mlt<=18)'
+        else:
+            sector= [float(s) for s in sector.split('-')]
+            if sector[0]> sector[-1]:
+                self.mltlims= f'(mlt>={sector[0]})|(mlt<={sector[-1]})'
+                mlts= [sector[0]]+list(range(int(np.ceil(sector[0])), 24))+ list(range(0, int(np.floor(sector[-1]))))+[sector[-1]]
+                xlims, ylims= self._mltMlatToXY(mlts, [self.minlat]*len(mlts))
+                xlims, ylims= self.ax.set_xlim(min([xlims.min()-.1, -0.1]), max([xlims.max()+.1, 0.1])), self.ax.set_ylim(min([ylims.min()-.1, -0.1]), max([ylims.max()+.1, 0.1]))
+            else:
+                self.mltlims= f'(mlt>={sector[0]})&(mlt<={sector[-1]})'
+                mlts= [sector[0]]+ list(range(int(np.ceil(sector[0])), int(np.floor(sector[-1]))))+ [sector[-1]]
+                xlims, ylims= self._mltMlatToXY(mlts, [self.minlat]*len(mlts))
+                xlims, ylims= self.ax.set_xlim(min([xlims.min()-.1, -0.1]), max([xlims.max()+.1, 0.1])), self.ax.set_ylim(min([ylims.min()-.1, -0.1]), max([ylims.max()+.1, 0.1]))
+
         self.ax.set_axis_off()
 
         self.ax.format_coord= self.make_format()
@@ -87,9 +102,11 @@ class Polarplot(object):
         x, y = self._mltMlatToXY(mlt, mlat)
         return self.ax.plot(x, y, **kwargs)
 
-    def write(self, mlat, mlt, text, **kwargs):
+    def write(self, mlat, mlt, text, bypass=False, **kwargs):
         """ write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text"""
-        x, y = self._mltMlatToXY(mlt, mlat)
+        x, y = self._mltMlatToXY(mlt, mlat, bypass=bypass)
+
+        return self.ax.text(x, y, text, **kwargs)
 
         self.ax.text(x, y, text, **kwargs)
 
@@ -102,33 +119,25 @@ class Polarplot(object):
 
     def plotgrid(self, **kwargs):
         """ plot mlt, mlat-grid on self.ax """
-
-        if self.sector == 'all':
-            self.ax.plot([-1, 1], [0 , 0], **kwargs)
-            self.ax.plot([0 , 0], [-1, 1], **kwargs)
-            angles = np.linspace(0, 2*np.pi, 360)
-        if self.sector == 'dawn':
-            self.ax.plot([0, 1], [0 , 0], **kwargs)
-            self.ax.plot([0, 0], [-1, 1], **kwargs)
-            angles = np.linspace(-np.pi/2, np.pi/2, 180)
-        if self.sector == 'dusk':
-            self.ax.plot([-1, 0], [0 , 0], **kwargs)
-            self.ax.plot([0 , 0], [-1, 1], **kwargs)
-            angles = np.linspace( np.pi/2, 3*np.pi/2, 180)
-        if self.sector == 'night':
-            self.ax.plot([-1, 1], [0 , 0], **kwargs)
-            self.ax.plot([0 , 0], [-1, 0], **kwargs)
-            angles = np.linspace(np.pi, 2*np.pi, 180)
-        if self.sector == 'day':
-            self.ax.plot([-1, 1], [0 , 0], **kwargs)
-            self.ax.plot([0 , 0], [ 0, 1], **kwargs)
-            angles = np.linspace(0, np.pi, 180)
+        mlat, mlt= self._XYtomltMlat(np.linspace(-1, 1, 101), [0]*101)
+        mlat= mlat[np.isfinite(mlt)]
+        mlt= mlt[np.isfinite(mlt)]
+        if len(mlat) and len(mlt):
+       	 self.plot(mlat[[0, -1]], mlt[[0, -1]], **kwargs)
+        mlat, mlt= self._XYtomltMlat([0]*100, np.linspace(-1, 1, 100))
+        mlat= mlat[np.isfinite(mlt)]
+        mlt= mlt[np.isfinite(mlt)]
+        if len(mlat) and len(mlt):
+    	    self.plot(mlat[[0, -1]], mlt[[0, -1]], **kwargs)
+        angles = np.linspace(0, 2*np.pi, 360)
 
 
         latgrid = (90 - np.r_[self.minlat:90:10])/(90. - self.minlat)
 
+
         for lat in latgrid:
-            self.ax.plot(lat*np.cos(angles), lat*np.sin(angles), **kwargs)
+            mlat, mlt= self._XYtomltMlat(lat*np.cos(angles), lat*np.sin(angles))
+            self.plot(mlat, mlt, **kwargs)
 
     def writeMLTlabels(self, mlat = None, degrees = False, **kwargs):
         """ write MLT labels at given latitude (default 48)
@@ -147,14 +156,28 @@ class Polarplot(object):
             if self.sector in ['all', 'night', 'dusk', 'day']:
                 self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , **kwargs)
         else:
-            if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                self.write(mlat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', **kwargs)
-            if self.sector in ['all', 'night', 'dawn', 'day']:
-                self.write(mlat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , **kwargs)
-            if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                self.write(mlat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', **kwargs)
-            if self.sector in ['all', 'night', 'dusk', 'day']:
-                self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , **kwargs)
+            sector= self.sector.split('-')
+            if self.sector in ['all', 'night', 'dawn', 'dusk'] \
+                    or (float(sector[0])<24 and float(sector[-1])<float(sector[0])) \
+                    or sector[0] in ['0', '24'] or sector[-1] in ['24', '0']\
+                    or (sector[0]=='0' and sector[1]=='24'):
+                self.write(mlat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', bypass=True, **kwargs)
+            if self.sector in ['all', 'night', 'dawn', 'day'] \
+                    or (float(sector[0])<=6 and float(sector[1])>=6)\
+                    or (float(sector[0])<=6 and float(sector[1])<=6 and float(sector[0])>float(sector[1]))\
+                    or (sector[0]=='0' and sector[1]=='24'):
+                self.write(mlat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , bypass=True, **kwargs)
+            if self.sector in ['all', 'dusk', 'dawn', 'day'] \
+                    or (float(sector[0])<=12 and float(sector[1])>=12)\
+                    or (float(sector[0])<=12 and float(sector[1])<=12 and float(sector[0])>float(sector[1]))\
+                    or (sector[0]=='0' and sector[1]=='24'):
+                self.write(mlat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', bypass=True, **kwargs)
+            if self.sector in ['all', 'night', 'dusk', 'day'] \
+                    or (float(sector[0])<=18 and float(sector[1])>=18)\
+                    or (float(sector[0])<=18 and float(sector[1])<=18 and float(sector[0])>float(sector[1]))\
+                    or (sector[0]=='0' and sector[1]=='24'):
+                self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs)
+
 
     def plotpins(self, mlats, mlts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
         """ like plotarrows, only it's not arrows but a dot with a line pointing in the arrow direction
@@ -254,17 +277,20 @@ class Polarplot(object):
         north = north.flatten()
         east = east.flatten()
         R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
-
+        if 'key_coords' in kwargs:
+            key_x, key_y= kwargs['key_coords']
+            kwargs.pop('key_coords', None)
+        else:
+            key_x, key_y= 0.9, 0.95
+        key=[]
         if SCALE is None:
             scale = 1.
         else:
 
             if unit is not None:
-                self.ax.plot([0.9, 1], [0.95, 0.95], color = color, linestyle = '-', linewidth = 2)
-                self.ax.text(0.9, 0.95, ('%.1f ' + unit) % SCALE, horizontalalignment = 'right', verticalalignment = 'center', size = size)
+                key.append(self.ax.plot([key_x, key_x+.1], [key_y]*2, color = color, linestyle = '-', linewidth = 2))
+                key.append(self.ax.text(key_x, key_y, ('%.1f ' + unit) % SCALE, horizontalalignment = 'right', verticalalignment = 'center', size = size))
 
-            #self.ax.set_xlim(-1.1, 1.1)
-            #self.ax.set_ylim(-1.1, 1.1)
             scale = 0.1/SCALE
 
         xs, ys, dxs, dys = [],[],[],[]
@@ -281,8 +307,10 @@ class Polarplot(object):
             dys.append(dy)
 
         xs, ys, dxs, dys = np.array(xs),np.array(ys),np.array(dxs)*scale,np.array(dys)*scale
-
-        self.ax.scatter(xs+dxs,ys+dys,marker = marker, c = markercolor, s = markersize, edgecolors = markercolor)
+        if len(key)!=0:
+            return self.ax.scatter(xs+dxs,ys+dys,marker = marker, c = markercolor, s = markersize, edgecolors = markercolor), key
+        else:
+            return self.ax.scatter(xs+dxs,ys+dys,marker = marker, c = markercolor, s = markersize, edgecolors = markercolor)
 
 
     def contour(self, mlat, mlt, f, **kwargs):
@@ -504,13 +532,10 @@ class Polarplot(object):
         vertsy = vertsy[iii]
 
         verts = np.dstack((vertsx, vertsy))
-
         if 'cmap' in kwargs.keys():
-            cmap = kwargs['cmap']
-            kwargs.pop('cmap')
+            cmap = kwargs.pop('cmap')
         else:
             cmap = plt.cm.viridis
-
         coll = PolyCollection(verts, array=data.flatten()[iii], cmap = cmap, edgecolors='none', **kwargs)
         if crange is not None:
             coll.set_clim(crange[0], crange[1])
@@ -520,7 +545,7 @@ class Polarplot(object):
             bg = Ellipse([0, 0], radius, radius, zorder = 0, facecolor = bgcolor)
             self.ax.add_artist(bg)
 
-        self.ax.add_collection(coll)
+        return self.ax.add_collection(coll)
 
 
     def ampereplot(self, keys, data, contour = False, crange = None, nlevels = 100, cbar = False, **kwargs):
@@ -605,7 +630,57 @@ class Polarplot(object):
 
 
         return coll
+    def get_projected_coastlines(self, datetime, height=0, **kwargs):
+        try:
+            import cartopy.io.shapereader as shpreader
+            from apexpy import Apex
+        except ModuleNotFoundError:
+            ModuleNotFoundError('Package missing. cartopy and apexpy are required for producing coastlines')
+        """ generate coastlines in projected coordinates """
 
+        if 'resolution' not in kwargs.keys():
+            kwargs['resolution'] = '50m'
+        if 'category' not in kwargs.keys():
+            kwargs['category'] = 'physical'
+        if 'name' not in kwargs.keys():
+            kwargs['name'] = 'coastline'
+
+        shpfilename = shpreader.natural_earth(**kwargs)
+        reader = shpreader.Reader(shpfilename)
+        coastlines = reader.records()
+        multilinestrings = []
+        A = Apex(date=datetime)
+        for coastline in coastlines:
+            if coastline.geometry.geom_type == 'MultiLineString':
+                multilinestrings.append(coastline.geometry)
+                continue
+            lon, lat = np.array(coastline.geometry.coords[:]).T 
+            mlat, mlon= A.geo2apex(lat, lon, height)
+            mlt= A.mlon2mlt(mlon, datetime)
+            yield mlat, mlt
+
+        for mls in multilinestrings:
+            for ls in mls:
+                lon, lat = np.array(ls.coords[:]).T
+                mlat, mlon= A.geo2apex(lat, lon, height)
+                ind= mlat<self.minlat
+                mlt= A.mlon2mlt(mlon, datetime)
+                mlat[ind], mlt[ind]= np.nan, np.nan
+                yield mlat, mlt
+    def coastlines(self, datetime, height=0, map_kwargs=None, plot_kwargs=None):
+        if (plot_kwargs is None):
+            plot_kwargs= {'color':'k'}
+        elif not('color' in plot_kwargs.keys()):
+            plot_kwargs.update({'color':'k'})
+        plots=[]
+        if map_kwargs is None:
+            for line in self.get_projected_coastlines(datetime,height=height):
+                plots.extend(self.plot(line[0], line[1], **plot_kwargs))
+        else:
+            for line in self.get_projected_coastlines(datetime,height=height, **map_kwargs):
+                plots.extend(self.plot(line[0], line[1], **plot_kwargs))
+            
+        return plots
 
     def _mltMlatToXY(self, mlt, mlat):
         mlt = np.asarray(mlt)
@@ -646,6 +721,5 @@ class Polarplot(object):
             string_original= 'x={:.2f}, y={:.2f}'.format(x, y)
             string_magnetic= 'mlt={:.2f}, mlat={:.2f}'.format(*ax_coord)
             return (string_original.ljust(20)+string_magnetic)
-            # return ('Left: {:<40}    Right: {:<}'
-            #         .format(*['({:.3f}, {:.3f})'.format(x, y) for x,y in coords]))
         return format_coord
+ 
