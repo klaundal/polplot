@@ -102,9 +102,9 @@ class Polarplot(object):
         x, y = self._mltMlatToXY(mlt, mlat)
         return self.ax.plot(x, y, **kwargs)
 
-    def write(self, mlat, mlt, text, bypass=False, **kwargs):
+    def write(self, mlat, mlt, text, **kwargs):
         """ write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text"""
-        x, y = self._mltMlatToXY(mlt, mlat, bypass=bypass)
+        x, y = self._mltMlatToXY(mlt, mlat)
 
         return self.ax.text(x, y, text, **kwargs)
 
@@ -161,22 +161,22 @@ class Polarplot(object):
                     or (float(sector[0])<24 and float(sector[-1])<float(sector[0])) \
                     or sector[0] in ['0', '24'] or sector[-1] in ['24', '0']\
                     or (sector[0]=='0' and sector[1]=='24'):
-                self.write(mlat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', bypass=True, **kwargs)
+                self.write(mlat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', **kwargs)
             if self.sector in ['all', 'night', 'dawn', 'day'] \
                     or (float(sector[0])<=6 and float(sector[1])>=6)\
                     or (float(sector[0])<=6 and float(sector[1])<=6 and float(sector[0])>float(sector[1]))\
                     or (sector[0]=='0' and sector[1]=='24'):
-                self.write(mlat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , bypass=True, **kwargs)
+                self.write(mlat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , **kwargs)
             if self.sector in ['all', 'dusk', 'dawn', 'day'] \
                     or (float(sector[0])<=12 and float(sector[1])>=12)\
                     or (float(sector[0])<=12 and float(sector[1])<=12 and float(sector[0])>float(sector[1]))\
                     or (sector[0]=='0' and sector[1]=='24'):
-                self.write(mlat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', bypass=True, **kwargs)
+                self.write(mlat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', **kwargs)
             if self.sector in ['all', 'night', 'dusk', 'day'] \
                     or (float(sector[0])<=18 and float(sector[1])>=18)\
                     or (float(sector[0])<=18 and float(sector[1])<=18 and float(sector[0])>float(sector[1]))\
                     or (sector[0]=='0' and sector[1]=='24'):
-                self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs)
+                self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , **kwargs)
 
 
     def plotpins(self, mlats, mlts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
