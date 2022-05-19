@@ -40,7 +40,7 @@ class Polarplot(object):
             plotarrows(mlats, mlts, north, east) - works like plt.arrow (accepts **kwargs too)
             contour(mlat, mlt, f)                - works like plt.contour
             contourf(mlat, mlt, f)               - works like plt.contourf
-        
+
 
         Parameters
         ----------
@@ -525,7 +525,7 @@ class Polarplot(object):
             self.ax.add_artist(bg)
 
 
-        self.ax.add_collection(coll)
+        return self.ax.add_collection(coll)
 
     def plotimg(self,mlat,mlt,image,corr=True , crange = None, bgcolor = None, **kwargs):
         """
@@ -570,6 +570,7 @@ class Polarplot(object):
             cmap = kwargs.pop('cmap')
         else:
             cmap = plt.cm.viridis
+        data = np.ma.array(data, mask=np.isnan(data))
         coll = PolyCollection(verts, array=data.flatten()[iii], cmap = cmap, edgecolors='none', **kwargs)
         if crange is not None:
             coll.set_clim(crange[0], crange[1])
@@ -688,7 +689,7 @@ class Polarplot(object):
             if coastline.geometry.geom_type == 'MultiLineString':
                 multilinestrings.append(coastline.geometry)
                 continue
-            lon, lat = np.array(coastline.geometry.coords[:]).T 
+            lon, lat = np.array(coastline.geometry.coords[:]).T
             mlat, mlon= A.geo2apex(lat, lon, height)
             mlt= A.mlon2mlt(mlon, datetime)
             yield mlat, mlt
@@ -713,7 +714,7 @@ class Polarplot(object):
         else:
             for line in self.get_projected_coastlines(datetime,height=height, **map_kwargs):
                 plots.extend(self.plot(line[0], line[1], **plot_kwargs))
-            
+
         return plots
 
     def _mltMlatToXY(self, mlt, mlat, bypass=False):
@@ -812,4 +813,3 @@ class Polarplot(object):
             string_magnetic= 'mlt={:.2f}, mlat={:.2f}'.format(*ax_coord)
             return (string_original.ljust(20)+string_magnetic)
         return format_coord
- 
