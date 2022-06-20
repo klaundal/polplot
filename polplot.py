@@ -125,7 +125,14 @@ class Polarplot(object):
 
         x, y = self._mltMlatToXY(mlt, mlat)
         return self.ax.plot(x, y, **kwargs)
+    
+    # added for consistency with pyplot
+    def text(self, mlat, mlt, text, bypass=False, **kwargs):
+        """ calls write() - write text on specified mlat, mlt.
 
+        """
+        self.write(mlat, mlt, text, bypass, **kwargs)
+    
     def write(self, mlat, mlt, text, bypass=False, **kwargs):
         """
         write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text
@@ -162,7 +169,7 @@ class Polarplot(object):
         c = self.ax.scatter(x, y, **kwargs)
         return c
 
-    def plotgrid(self, **kwargs):
+    def plotgrid(self, labels=False, **kwargs):
         """ plot mlt, mlat-grid on self.ax """
         mlat, mlt= self._XYtomltMlat(np.linspace(-1, 1, 101), [0]*101)
         mlat= mlat[np.isfinite(mlt)]
@@ -176,13 +183,16 @@ class Polarplot(object):
     	    self.plot(mlat[[0, -1]], mlt[[0, -1]], **kwargs)
         angles = np.linspace(0, 2*np.pi, 360)
 
-
         latgrid = (90 - np.r_[self.minlat:90:10])/(90. - self.minlat)
-
 
         for lat in latgrid:
             mlat, mlt= self._XYtomltMlat(lat*np.cos(angles), lat*np.sin(angles))
             self.plot(mlat, mlt, **kwargs)
+        
+        # add MLAT and MLT labels to axis
+        if labels:
+            self.writeMLATlabels()
+            self.writeMLTlabels()
 
     def writeMLTlabels(self, mlat = None, degrees = False, **kwargs):
         """ write MLT labels at given latitude (default 48)
@@ -215,6 +225,20 @@ class Polarplot(object):
                 labels.append(self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs))
 
             return labels
+    
+    # added by AØH 20/06/2022 to plot magnetic latitude labels
+    def writeMLATlabels(self, mlt = None, **kwargs):
+        """ write magnetic latitude labels """
+        if mlt == None:
+            mlt = 3
+        if kwargs is not None:
+            mlatkwargs = {'rotation':45, 'color':'lightgrey', 'backgroundcolor':'white', 'zorder':2, 'alpha':1.}
+            mlatkwargs.update(kwargs)
+        labels = []
+        for mlat in np.r_[self.minlat:81:10]:
+            labels.append(self.write(mlat, mlt, str(mlat)+'$^{\circ}$', bypass = False, **mlatkwargs))
+        
+        return labels
 
     def plotpins(self, mlats, mlts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
         """ like plotarrows, only it's not arrows but a dot with a line pointing in the arrow direction
