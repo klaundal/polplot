@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import griddata
 from matplotlib import rc
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon, Ellipse
 from matplotlib.collections import PolyCollection, LineCollection
 
 # Added by AØH 17/06/2022 for Lompe, should be changed when merged with Lompe 
