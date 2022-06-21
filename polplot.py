@@ -203,13 +203,13 @@ class Polarplot(object):
         labels=[]
         if degrees:
             if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                labels.append(self.write(mlat, 0,    '0$^\circ$', verticalalignment = 'top'    , horizontalalignment = 'center', **kwargs))
+                labels.append(self.write(mlat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', bypass=True, **kwargs))
             if self.sector in ['all', 'night', 'dawn', 'day']:
-                labels.append(self.write(mlat, 6,   '90$^\circ$', verticalalignment = 'center' , horizontalalignment = 'left'  , **kwargs))
+                labels.append(self.write(mlat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , bypass=True, **kwargs))
             if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                labels.append(self.write(mlat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', **kwargs))
+                labels.append(self.write(mlat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', bypass=True, **kwargs))
             if self.sector in ['all', 'night', 'dusk', 'day']:
-                labels.append(self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , **kwargs))
+                labels.append(self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs))
         else:
             mlt=np.array([0, 24])
             if any(eval(self.mltlims)):
@@ -698,13 +698,17 @@ class Polarplot(object):
 
 
         return coll
-    def get_projected_coastlines(self, datetime, height=0, **kwargs):
+    
+    
+    def get_projected_coastlines(self, datetime, geo=False, height=0, **kwargs):
+        """ generate coastlines in projected coordinates """
+        
         try:
             import cartopy.io.shapereader as shpreader
             from apexpy import Apex
         except ModuleNotFoundError:
             ModuleNotFoundError('Package missing. cartopy and apexpy are required for producing coastlines')
-        """ generate coastlines in projected coordinates """
+
 
         if 'resolution' not in kwargs.keys():
             kwargs['resolution'] = '50m'
@@ -723,29 +727,40 @@ class Polarplot(object):
                 multilinestrings.append(coastline.geometry)
                 continue
             lon, lat = np.array(coastline.geometry.coords[:]).T 
-            mlat, mlon= A.geo2apex(lat, lon, height)
-            mlt= A.mlon2mlt(mlon, datetime)
-            yield mlat, mlt
+            if geo:
+                yield lat, lon/15 # to LT
+            else:
+                mlat, mlon= A.geo2apex(lat, lon, height)
+                mlt= A.mlon2mlt(mlon, datetime)
+                yield mlat, mlt
+                
 
         for mls in multilinestrings:
             for ls in mls:
                 lon, lat = np.array(ls.coords[:]).T
-                mlat, mlon= A.geo2apex(lat, lon, height)
-                ind= mlat<self.minlat
-                mlt= A.mlon2mlt(mlon, datetime)
-                mlat[ind], mlt[ind]= np.nan, np.nan
-                yield mlat, mlt
-    def coastlines(self, datetime, height=0, map_kwargs=None, plot_kwargs=None):
+                if geo:
+                    ind= lat<self.minlat
+                    lat[ind], lon[ind]= np.nan, np.nan
+                    yield lat, lon/15 # to LT
+                else:
+                    mlat, mlon= A.geo2apex(lat, lon, height)
+                    ind= mlat<self.minlat
+                    mlt= A.mlon2mlt(mlon, datetime)
+                    mlat[ind], mlt[ind]= np.nan, np.nan
+                    yield mlat, mlt
+                    
+    
+    def coastlines(self, datetime, geo=False, height=0, map_kwargs=None, plot_kwargs=None):
         if (plot_kwargs is None):
             plot_kwargs= {'color':'k'}
         elif not('color' in plot_kwargs.keys()):
             plot_kwargs.update({'color':'k'})
         plots=[]
         if map_kwargs is None:
-            for line in self.get_projected_coastlines(datetime,height=height):
+            for line in self.get_projected_coastlines(datetime,geo=geo,height=height):
                 plots.extend(self.plot(line[0], line[1], **plot_kwargs))
         else:
-            for line in self.get_projected_coastlines(datetime,height=height, **map_kwargs):
+            for line in self.get_projected_coastlines(datetime,geo=geo,height=height, **map_kwargs):
                 plots.extend(self.plot(line[0], line[1], **plot_kwargs))
             
         return plots
