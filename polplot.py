@@ -3,12 +3,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import griddata
 from matplotlib import rc
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon, Ellipse
 from matplotlib.collections import PolyCollection, LineCollection
-#from pysymmetry.sunlight import terminator
+
+# Added by AØH 17/06/2022 for Lompe, should be changed when merged with Lompe 
+from lompe.utils.sunlight import terminator
 
 
-rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+# rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('font', **{'family': 'sans-serif', 'sans-serif': ['Verdana']})
 rc('text', usetex=True)
 
 
@@ -122,7 +125,14 @@ class Polarplot(object):
 
         x, y = self._mltMlatToXY(mlt, mlat)
         return self.ax.plot(x, y, **kwargs)
+    
+    # added for consistency with pyplot
+    def text(self, mlat, mlt, text, bypass=False, **kwargs):
+        """ calls write() - write text on specified mlat, mlt.
 
+        """
+        self.write(mlat, mlt, text, bypass, **kwargs)
+    
     def write(self, mlat, mlt, text, bypass=False, **kwargs):
         """
         write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text
@@ -159,7 +169,7 @@ class Polarplot(object):
         c = self.ax.scatter(x, y, **kwargs)
         return c
 
-    def plotgrid(self, **kwargs):
+    def plotgrid(self, labels=False, **kwargs):
         """ plot mlt, mlat-grid on self.ax """
         mlat, mlt= self._XYtomltMlat(np.linspace(-1, 1, 101), [0]*101)
         mlat= mlat[np.isfinite(mlt)]
@@ -173,13 +183,16 @@ class Polarplot(object):
     	    self.plot(mlat[[0, -1]], mlt[[0, -1]], **kwargs)
         angles = np.linspace(0, 2*np.pi, 360)
 
-
         latgrid = (90 - np.r_[self.minlat:90:10])/(90. - self.minlat)
-
 
         for lat in latgrid:
             mlat, mlt= self._XYtomltMlat(lat*np.cos(angles), lat*np.sin(angles))
             self.plot(mlat, mlt, **kwargs)
+        
+        # add MLAT and MLT labels to axis
+        if labels:
+            self.writeMLATlabels()
+            self.writeMLTlabels()
 
     def writeMLTlabels(self, mlat = None, degrees = False, **kwargs):
         """ write MLT labels at given latitude (default 48)
@@ -190,13 +203,13 @@ class Polarplot(object):
         labels=[]
         if degrees:
             if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                labels.append(self.write(mlat, 0,    '0$^\circ$', verticalalignment = 'top'    , horizontalalignment = 'center', **kwargs))
+                labels.append(self.write(mlat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', bypass=True, **kwargs))
             if self.sector in ['all', 'night', 'dawn', 'day']:
-                labels.append(self.write(mlat, 6,   '90$^\circ$', verticalalignment = 'center' , horizontalalignment = 'left'  , **kwargs))
+                labels.append(self.write(mlat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , bypass=True, **kwargs))
             if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                labels.append(self.write(mlat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', **kwargs))
+                labels.append(self.write(mlat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', bypass=True, **kwargs))
             if self.sector in ['all', 'night', 'dusk', 'day']:
-                labels.append(self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , **kwargs))
+                labels.append(self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs))
         else:
             mlt=np.array([0, 24])
             if any(eval(self.mltlims)):
@@ -212,6 +225,20 @@ class Polarplot(object):
                 labels.append(self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs))
 
             return labels
+    
+    # added by AØH 20/06/2022 to plot magnetic latitude labels
+    def writeMLATlabels(self, mlt = None, **kwargs):
+        """ write magnetic latitude labels """
+        if mlt == None:
+            mlt = 3
+        if kwargs is not None:
+            mlatkwargs = {'rotation':45, 'color':'lightgrey', 'backgroundcolor':'white', 'zorder':2, 'alpha':1.}
+            mlatkwargs.update(kwargs)
+        labels = []
+        for mlat in np.r_[self.minlat:81:10]:
+            labels.append(self.write(mlat, mlt, str(mlat)+'$^{\circ}$', bypass = False, **mlatkwargs))
+        
+        return labels
 
     def plotpins(self, mlats, mlts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
         """ like plotarrows, only it's not arrows but a dot with a line pointing in the arrow direction
@@ -386,87 +413,94 @@ class Polarplot(object):
         # plot
         return self.ax.fill(xx, yy, **kwargs)
 
-
+    # TODO: This needs work, but check out utils.terminator() first! (AØH 17/06/2022)
     # def plot_terminator(self, position, sza = 90, north = True, shadecolor = None, terminatorcolor = 'black', terminatorlinewidth = 1, shadelinewidth = 0, **kwargs):
-    #     """ shade the area antisunward of the terminator
-
-    #         position            -- either a scalar or a datetime object
-    #                               if scalar: interpreted as the signed magnetic colatitude of the terminator, positive on dayside, negative on night side
-    #                               if datetime: terminator is calculated, and converted to magnetic apex coordinates (refh = 0, height = 0)
-    #         sza                 -- sza to locate terminator, used if position is datetime
-    #         north               -- True if northern hemisphere, south if not (only matters if position is datetime)
-    #         shadecolor               -- color of the shaded area - default None
-    #         shadelinewidth           -- width of the contour surrounding the shaded area - default 0 (invisible)
-    #         terminatorcolor     -- color of the terminator - default black
-    #         terminatorlinewidth -- width of the terminator contour
-    #         **kwargs            -- passed to Polygon
-
-
-    #         EXAMPLE: to only plot the terminator (no shade):
-    #         plot_terminator(position, color = 'white') <- sets the shade to white (or something different if the plot background is different)
-
-
-    #         useful extensions:
-    #         - height dependence...
-    #     """
-
-    #     if np.isscalar(position): # set the terminator as a horizontal bar
-    #         if position >= 0: # dayside
-    #             position = np.min([90 - self.minlat, position])
-    #             x0, y0 = self._mltMlatToXY(12, 90 - np.abs(position))
-    #         else: #nightside
-    #             x0, y0 = self._mltMlatToXY(24, 90 - np.abs(position))
-
-    #         xr = np.sqrt(1 - y0**2)
-    #         xl = -xr
-    #         lat, left_mlt  = self._XYtomltMlat(xl, y0)
-    #         lat, right_mlt = self._XYtomltMlat(xr, y0)
-    #         if position > -(90 - self.minlat):
-    #             right_mlt += 24
-
-    #         x = np.array([xl, xr])
-    #         y = np.array([y0, y0])
-
-    #     else: # calculate the terminator trajectory
-    #         a = apexpy.Apex(date = position)
-
-    #         t_glat, t_glon = terminator(position, sza = sza, resolution = 3600)
-    #         t_mlat, t_mlon = a.geo2apex(t_glat, t_glon, 0)
-    #         t_mlt          = a.mlon2mlt(t_mlon, position)
-
-    #         # limit contour to correct hemisphere:
-    #         iii = (t_mlat >= self.minlat) if north else (t_mlat <= -self.minlat)
-    #         if len(iii) == 0:
-    #             return 0 # terminator is outside plot
-    #         t_mlat = t_mlat[iii]
-    #         t_mlt = t_mlt[iii]
-
-    #         x, y = self._mltMlatToXY(t_mlt, t_mlat)
-
-    #         # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
-    #         xmin = np.argmin(x)
-    #         xmax = np.argmax(x)
-    #         left_mlt = t_mlt[xmin]
-    #         right_mlt = t_mlt[xmax]
-    #         if right_mlt < left_mlt:
-    #             right_mlt += 24
-
-    #     mlat_b = np.full(100, self.minlat)
-    #     mlt_b  = np.linspace(left_mlt, right_mlt, 100)
-    #     xb, yb = self._mltMlatToXY(mlt_b, mlat_b)
-
-    #     # sort x and y to be in ascending order
-    #     iii = np.argsort(x)
-    #     x = x[iii[::-1]]
-    #     y = y[iii[::-1]]
-
-    #     if terminatorcolor is not None:
-    #         self.ax.plot(x, y, color = terminatorcolor, linewidth = terminatorlinewidth)
-    #     if shadecolor is not None:
-    #         kwargs['color'] = shadecolor
-    #         kwargs['linewidth'] = shadelinewidth
-    #         shade = Polygon(np.vstack((np.hstack((x, xb)), np.hstack((y, yb)))).T, closed = True, **kwargs)
-    #         self.ax.add_patch(shade)
+    #      """ shade the area antisunward of the terminator
+    
+    #           position            -- either a scalar or a datetime object
+    #                                if scalar: interpreted as the signed magnetic colatitude of the terminator, positive on dayside, negative on night side
+    #                                if datetime: terminator is calculated, and converted to magnetic apex coordinates (refh = 0, height = 0)
+    #          sza                 -- sza to locate terminator, used if position is datetime
+    #          north               -- True if northern hemisphere, south if not (only matters if position is datetime)
+    #          shadecolor               -- color of the shaded area - default None
+    #          shadelinewidth           -- width of the contour surrounding the shaded area - default 0 (invisible)
+    #          terminatorcolor     -- color of the terminator - default black
+    #          terminatorlinewidth -- width of the terminator contour
+    #          **kwargs            -- passed to Polygon
+    
+    
+    #          EXAMPLE: to only plot the terminator (no shade):
+    #          plot_terminator(position, color = 'white') <- sets the shade to white (or something different if the plot background is different)
+    
+    
+    #          useful extensions:
+    #          - height dependence...
+    #      """
+    
+    #      if np.isscalar(position): # set the terminator as a horizontal bar
+    #          if position >= 0: # dayside
+    #              position = np.min([90 - self.minlat, position])
+    #              x0, y0 = self._mltMlatToXY(12, 90 - np.abs(position))
+    #          else: #nightside
+    #              x0, y0 = self._mltMlatToXY(24, 90 - np.abs(position))
+    
+    #          xr = np.sqrt(1 - y0**2)
+    #          xl = -xr
+    #          lat, left_mlt  = self._XYtomltMlat(xl, y0)
+    #          lat, right_mlt = self._XYtomltMlat(xr, y0)
+    #          if position > -(90 - self.minlat):
+    #              right_mlt += 24
+    
+    #          x = np.array([xl, xr])
+    #          y = np.array([y0, y0])
+    
+    #      else: # calculate the terminator trajectory
+             
+    #          # local added by Amalie 17/06/2022
+    #          try:
+    #              import apexpy
+    #          except ModuleNotFoundError:
+    #              raise ModuleNotFoundError('plot_terminator requires apexpy module.')
+                 
+    #          a = apexpy.Apex(date = position)
+    
+    #          t_glat, t_glon = terminator(position, sza = sza, resolution = 3600)
+    #          t_mlat, t_mlon = a.geo2apex(t_glat, t_glon, 0)
+    #          t_mlt          = a.mlon2mlt(t_mlon, position)
+    
+    #          # limit contour to correct hemisphere:
+    #          iii = (t_mlat >= self.minlat) if north else (t_mlat <= -self.minlat)
+    #          if len(iii) == 0:
+    #              return 0 # terminator is outside plot
+    #          t_mlat = t_mlat[iii]
+    #          t_mlt = t_mlt[iii]
+    
+    #          x, y = self._mltMlatToXY(t_mlt, t_mlat)
+    
+    #          # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
+    #          xmin = np.argmin(x)
+    #          xmax = np.argmax(x)
+    #          left_mlt = t_mlt[xmin]
+    #          right_mlt = t_mlt[xmax]
+    #          if right_mlt < left_mlt:
+    #              right_mlt += 24
+    
+    #      mlat_b = np.full(100, self.minlat)
+    #      mlt_b  = np.linspace(left_mlt, right_mlt, 100)
+    #      xb, yb = self._mltMlatToXY(mlt_b, mlat_b)
+    
+    #      # sort x and y to be in ascending order
+    #      iii = np.argsort(x)
+    #      x = x[iii[::-1]]
+    #      y = y[iii[::-1]]
+    
+    #      if terminatorcolor is not None:
+    #          self.ax.plot(x, y, color = terminatorcolor, linewidth = terminatorlinewidth)
+    #      if shadecolor is not None:
+    #          kwargs['color'] = shadecolor
+    #          kwargs['linewidth'] = shadelinewidth
+    #          shade = Polygon(np.vstack((np.hstack((x, xb)), np.hstack((y, yb)))).T, closed = True, **kwargs)
+    #          self.ax.add_patch(shade)
 
 
 
@@ -664,13 +698,17 @@ class Polarplot(object):
 
 
         return coll
-    def get_projected_coastlines(self, datetime, height=0, **kwargs):
+    
+    
+    def get_projected_coastlines(self, datetime, geo=False, height=0, **kwargs):
+        """ generate coastlines in projected coordinates """
+        
         try:
             import cartopy.io.shapereader as shpreader
             from apexpy import Apex
         except ModuleNotFoundError:
             ModuleNotFoundError('Package missing. cartopy and apexpy are required for producing coastlines')
-        """ generate coastlines in projected coordinates """
+
 
         if 'resolution' not in kwargs.keys():
             kwargs['resolution'] = '50m'
@@ -689,29 +727,40 @@ class Polarplot(object):
                 multilinestrings.append(coastline.geometry)
                 continue
             lon, lat = np.array(coastline.geometry.coords[:]).T 
-            mlat, mlon= A.geo2apex(lat, lon, height)
-            mlt= A.mlon2mlt(mlon, datetime)
-            yield mlat, mlt
+            if geo:
+                yield lat, lon/15 # to LT
+            else:
+                mlat, mlon= A.geo2apex(lat, lon, height)
+                mlt= A.mlon2mlt(mlon, datetime)
+                yield mlat, mlt
+                
 
         for mls in multilinestrings:
             for ls in mls:
                 lon, lat = np.array(ls.coords[:]).T
-                mlat, mlon= A.geo2apex(lat, lon, height)
-                ind= mlat<self.minlat
-                mlt= A.mlon2mlt(mlon, datetime)
-                mlat[ind], mlt[ind]= np.nan, np.nan
-                yield mlat, mlt
-    def coastlines(self, datetime, height=0, map_kwargs=None, plot_kwargs=None):
+                if geo:
+                    ind= lat<self.minlat
+                    lat[ind], lon[ind]= np.nan, np.nan
+                    yield lat, lon/15 # to LT
+                else:
+                    mlat, mlon= A.geo2apex(lat, lon, height)
+                    ind= mlat<self.minlat
+                    mlt= A.mlon2mlt(mlon, datetime)
+                    mlat[ind], mlt[ind]= np.nan, np.nan
+                    yield mlat, mlt
+                    
+    
+    def coastlines(self, datetime, geo=False, height=0, map_kwargs=None, plot_kwargs=None):
         if (plot_kwargs is None):
             plot_kwargs= {'color':'k'}
         elif not('color' in plot_kwargs.keys()):
             plot_kwargs.update({'color':'k'})
         plots=[]
         if map_kwargs is None:
-            for line in self.get_projected_coastlines(datetime,height=height):
+            for line in self.get_projected_coastlines(datetime,geo=geo,height=height):
                 plots.extend(self.plot(line[0], line[1], **plot_kwargs))
         else:
-            for line in self.get_projected_coastlines(datetime,height=height, **map_kwargs):
+            for line in self.get_projected_coastlines(datetime,geo=geo,height=height, **map_kwargs):
                 plots.extend(self.plot(line[0], line[1], **plot_kwargs))
             
         return plots
