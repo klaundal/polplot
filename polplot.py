@@ -1,6 +1,7 @@
 from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
+import warnings
 from scipy.interpolate import griddata
 from matplotlib import rc
 from matplotlib.patches import Polygon, Ellipse
@@ -55,9 +56,9 @@ class Polarplot(object):
             DESCRIPTION. The default is True.
         sector : string, optional
             Used to generate portions of polar plot.
-            Can either use one of the folling strings: 'All', 'dusk',
-            'dawn', 'night', 'day'. Or can be defined using numbers for example '18-6' will produce
-            the samem as night while '6-18' will produce the same as day. The default is 'all'.
+            Can either use one of the following strings: 'all', 'dusk', 'dawn', 'night', 'day'. 
+            Or can be defined using numbers for example '18-6' will produce the samem as night 
+            while '6-18' will produce the same as day. The default is 'all'.
         **kwargs : TYPE
             DESCRIPTION.
 
@@ -69,7 +70,6 @@ class Polarplot(object):
         self.minlat = minlat # the lower latitude boundary of the plot
         self.ax = ax
         self.ax.axis('equal')
-        self.in_axes= ax.in_axes
         self.sector = sector
 
         if 'linewidth' not in kwargs.keys():
@@ -81,38 +81,23 @@ class Polarplot(object):
         if 'linestyle' not in kwargs.keys():
             kwargs['linestyle'] = '--'
 
-        if sector == 'all':
-            self.ax.set_xlim(-1.1, 1.1)
-            self.ax.set_ylim(-1.1, 1.1)
-            self.mltlims= 'mlt>-9.999e3'
-        elif sector == 'dusk':
-            self.ax.set_xlim(-1.1, 0.1)
-            self.ax.set_ylim(-1.1, 1.1)
-            self.mltlims= '(mlt>=12) | (mlt<=0)'
-        elif sector == 'dawn':
-            self.ax.set_xlim(-0.1, 1.1)
-            self.ax.set_ylim(-1.1, 1.1)
-            self.mltlims= '(mlt>=24) | (mlt<=12)'
-        elif sector == 'night':
-            self.ax.set_xlim(-1.1, 1.1)
-            self.ax.set_ylim(-1.1, 0.1)
-            self.mltlims= '(mlt>=18) | (mlt<=6)'
-        elif sector == 'day':
-            self.ax.set_xlim(-1.1, 1.1)
-            self.ax.set_ylim(-0.1, 1.1)
-            self.mltlims= '(mlt>=6) & (mlt<=18)'
+        # define the mlt limits
+        if sector.lower() == 'all':
+            self.mltlims = 'mlt >= 0'
+        elif sector.lower() == 'dusk':
+            self.mltlims = '(mlt >= 12) | (mlt == 0)'
+        elif sector.lower() == 'dawn':
+            self.mltlims = '(mlt <= 12) | (mlt == 24)'
+        elif sector.lower() == 'night':
+            self.mltlims = '(mlt >= 18) | (mlt <= 6)'
+        elif sector.lower() == 'day':
+            self.mltlims = '(mlt >= 6) & (mlt <=18)'
         else:
-            sector= [float(s) for s in sector.split('-')]
+            sector = [float(s) for s in sector.split('-')]
             if sector[0]> sector[-1]:
                 self.mltlims= f'(mlt>={sector[0]})|(mlt<={sector[-1]})'
-                mlts= [sector[0]]+list(range(int(np.ceil(sector[0])), 24))+ list(range(0, int(np.floor(sector[-1]))))+[sector[-1]]
-                xlims, ylims= self._mltMlatToXY(mlts, [self.minlat]*len(mlts))
-                xlims, ylims= self.ax.set_xlim(min([xlims.min()-.1, -0.1]), max([xlims.max()+.1, 0.1])), self.ax.set_ylim(min([ylims.min()-.1, -0.1]), max([ylims.max()+.1, 0.1]))
             else:
                 self.mltlims= f'(mlt>={sector[0]})&(mlt<={sector[-1]})'
-                mlts= [sector[0]]+ list(range(int(np.ceil(sector[0])), int(np.floor(sector[-1]))))+ [sector[-1]]
-                xlims, ylims= self._mltMlatToXY(mlts, [self.minlat]*len(mlts))
-                xlims, ylims= self.ax.set_xlim(min([xlims.min()-.1, -0.1]), max([xlims.max()+.1, 0.1])), self.ax.set_ylim(min([ylims.min()-.1, -0.1]), max([ylims.max()+.1, 0.1]))
 
         self.ax.set_axis_off()
 
@@ -120,20 +105,27 @@ class Polarplot(object):
         if plotgrid:
             self.plotgrid(**kwargs)
 
+        # set suitable plot limits by drawing a circle at minlat:
+        x, y = self._mltMlatToXY(np.linspace(0, 24, 100), np.full(100, self.minlat))
+        self.ax.set_xlim(np.nanmin(x) - 0.1, np.nanmax(x) + 0.1)
+        self.ax.set_ylim(np.nanmin(y) - 0.1, np.nanmax(y) + 0.1)
+
+
     def plot(self, mlat, mlt, **kwargs):
         """ plot curve based on mlat, mlt. Calls matplotlib.plot, so any keywords accepted by this is also accepted here """
 
         x, y = self._mltMlatToXY(mlt, mlat)
         return self.ax.plot(x, y, **kwargs)
     
-    # added for consistency with pyplot
-    def text(self, mlat, mlt, text, bypass=False, **kwargs):
+
+    def text(self, mlat, mlt, text, ignore_plot_limits=False, **kwargs):
         """ calls write() - write text on specified mlat, mlt.
 
         """
-        self.write(mlat, mlt, text, bypass, **kwargs)
+        self.write(mlat, mlt, text, ignore_plot_limits, **kwargs)
+
     
-    def write(self, mlat, mlt, text, bypass=False, **kwargs):
+    def write(self, mlat, mlt, text, ignore_plot_limits=False, **kwargs):
         """
         write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text
 
@@ -145,7 +137,7 @@ class Polarplot(object):
             DESCRIPTION.
         text : TYPE
             DESCRIPTION.
-        bypass : boolean, optional
+        ignore_plot_limits : boolean, optional
             When True the conversion will ignore the limits of the plot allowing plotting outside
             the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
 
@@ -158,9 +150,13 @@ class Polarplot(object):
             DESCRIPTION.
 
         """
-        x, y = self._mltMlatToXY(mlt, mlat, bypass=bypass)
+        x, y = self._mltMlatToXY(mlt, mlat, ignore_plot_limits=ignore_plot_limits)
 
-        return self.ax.text(x, y, text, **kwargs)
+        if np.isfinite(x + y):
+            return self.ax.text(x, y, text, **kwargs)
+        else:
+            print('text outside plot limit - set "ignore_plot_limits = True" to override')
+
 
     def scatter(self, mlat, mlt, **kwargs):
         """ scatterplot on the polar grid. **kwargs go to matplotlib.pyplot.scatter """
@@ -169,33 +165,34 @@ class Polarplot(object):
         c = self.ax.scatter(x, y, **kwargs)
         return c
 
+
     def plotgrid(self, labels=False, **kwargs):
-        """ plot mlt, mlat-grid on self.ax """
-        mlat, mlt= self._XYtomltMlat(np.linspace(-1, 1, 101), [0]*101)
-        mlat= mlat[np.isfinite(mlt)]
-        mlt= mlt[np.isfinite(mlt)]
-        if len(mlat) and len(mlt):
-       	 self.plot(mlat[[0, -1]], mlt[[0, -1]], **kwargs)
-        mlat, mlt= self._XYtomltMlat([0]*100, np.linspace(-1, 1, 100))
-        mlat= mlat[np.isfinite(mlt)]
-        mlt= mlt[np.isfinite(mlt)]
-        if len(mlat) and len(mlt):
-    	    self.plot(mlat[[0, -1]], mlt[[0, -1]], **kwargs)
-        angles = np.linspace(0, 2*np.pi, 360)
+        """ plot mlt, mlat-grid on self.ax 
 
-        latgrid = (90 - np.r_[self.minlat:90:10])/(90. - self.minlat)
+        parameters
+        ----------
+        labels: bool
+            set to True to include mlat/mlt labels
+        **kwarsgs: dictionary
+            passed to matplotlib's plot function (for linestyle etc.)
 
-        for lat in latgrid:
-            mlat, mlt= self._XYtomltMlat(lat*np.cos(angles), lat*np.sin(angles))
-            self.plot(mlat, mlt, **kwargs)
+        """
+
+        for mlt in [0, 6, 12, 18]:
+            self.plot([self.minlat, 90], [mlt, mlt], **kwargs)
+
+        mlts = np.linspace(0, 24, 100)
+        for mlat in np.r_[90: self.minlat -1e-12 :-10]:
+            self.plot(np.full(100, mlat), mlts, **kwargs)
         
         # add MLAT and MLT labels to axis
         if labels:
             self.writeMLATlabels()
             self.writeMLTlabels()
 
+
     def writeMLTlabels(self, mlat = None, degrees = False, **kwargs):
-        """ write MLT labels at given latitude (default 48)
+        """ write MLT labels at given latitude (default minlat - 2)
             if degrees is true, the longitude will be written instead of hour (with 0 at midnight)
         """
         if mlat is None:
@@ -203,28 +200,29 @@ class Polarplot(object):
         labels=[]
         if degrees:
             if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                labels.append(self.write(mlat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', bypass=True, **kwargs))
+                labels.append(self.write(mlat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dawn', 'day']:
-                labels.append(self.write(mlat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , bypass=True, **kwargs))
+                labels.append(self.write(mlat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                labels.append(self.write(mlat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', bypass=True, **kwargs))
+                labels.append(self.write(mlat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dusk', 'day']:
-                labels.append(self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs))
+                labels.append(self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
         else:
             mlt=np.array([0, 24])
             if any(eval(self.mltlims)):
-                labels.append(self.write(mlat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', bypass=True, **kwargs))
+                labels.append(self.write(mlat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             mlt=6
             if eval(self.mltlims):
-                labels.append(self.write(mlat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , bypass=True, **kwargs))
+                labels.append(self.write(mlat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             mlt=12
             if eval(self.mltlims):
-                labels.append(self.write(mlat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', bypass=True, **kwargs))
+                labels.append(self.write(mlat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             mlt=18
             if eval(self.mltlims):
-                labels.append(self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , bypass=True, **kwargs))
+                labels.append(self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
 
             return labels
+
     
     # added by AØH 20/06/2022 to plot magnetic latitude labels
     def writeMLATlabels(self, mlt = None, **kwargs):
@@ -236,9 +234,10 @@ class Polarplot(object):
             mlatkwargs.update(kwargs)
         labels = []
         for mlat in np.r_[self.minlat:81:10]:
-            labels.append(self.write(mlat, mlt, str(mlat)+'$^{\circ}$', bypass = False, **mlatkwargs))
+            labels.append(self.write(mlat, mlt, str(mlat)+'$^{\circ}$', ignore_plot_limits = False, **mlatkwargs))
         
         return labels
+
 
     def plotpins(self, mlats, mlts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
         """ like plotarrows, only it's not arrows but a dot with a line pointing in the arrow direction
@@ -287,7 +286,7 @@ class Polarplot(object):
 
 
     def quiver(self, mlat, mlt, north, east, rotation = 0, qkeyproperties = None, **kwargs):
-        """ wrapper for matplotlib's quiver function, juts for mlat/mlt coordinates and
+        """ wrapper for matplotlib's quiver function, just for mlat/mlt coordinates and
             east/north components. Rotation specifies a rotation angle for the vectors,
             which could be convenient if you want to rotate magnetic field measurements
             to an equivalent current direction
@@ -408,7 +407,6 @@ class Polarplot(object):
         """
 
         xx, yy = self._mltMlatToXY(mlt.flatten(), mlat.flatten())
-
 
         # plot
         return self.ax.fill(xx, yy, **kwargs)
@@ -560,6 +558,7 @@ class Polarplot(object):
 
 
         self.ax.add_collection(coll)
+
 
     def plotimg(self,mlat,mlt,image,corr=True , crange = None, bgcolor = None, **kwargs):
         """
@@ -765,7 +764,8 @@ class Polarplot(object):
             
         return plots
 
-    def _mltMlatToXY(self, mlt, mlat, bypass=False):
+
+    def _mltMlatToXY(self, mlt, mlat, ignore_plot_limits=False):
         """
 
         Parameters
@@ -774,7 +774,7 @@ class Polarplot(object):
             DESCRIPTION.
         mlat : TYPE
             DESCRIPTION.
-        bypass : boolean, optional
+        ignore_plot_limits : boolean, optional
             When True the conversion will ignore the limits of the plot allowing plotting outside
             the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
 
@@ -789,22 +789,26 @@ class Polarplot(object):
             DESCRIPTION.
 
         """
-        mlt = np.asarray(mlt, dtype='float64').copy()
-        mlat = np.asarray(mlat, dtype='float64').copy()
-        if not bypass:
-            nan_index= (~eval(self.mltlims)) | (mlat<self.minlat)
-        else:
-            nan_index= np.bool8(np.zeros_like(mlat))
-        if mlt.shape!= mlat.shape:
+
+        mlt = np.array(mlt).flatten() % 24
+        mlat = np.array(mlat).flatten()
+
+        if mlt.size!= mlat.size:
             raise ValueError('x and y must be the same size')
-        mlt[nan_index]=np.nan
-        mlat[nan_index]=np.nan
+
         r = (90. - np.abs(mlat))/(90. - self.minlat)
         a = (mlt - 6.)/12.*np.pi
 
-        return r*np.cos(a), r*np.sin(a)
+        x, y = r*np.cos(a), r*np.sin(a)
 
-    def _XYtomltMlat(self, x, y, bypass=False):
+        if ignore_plot_limits:
+            return x, y
+        else:
+            mask = np.ones_like(x)
+            mask[(~eval(self.mltlims)) | (mlat < self.minlat)] = np.nan
+            return x * mask, y * mask
+
+    def _XYtomltMlat(self, x, y, ignore_plot_limits=False):
         """
         convert x, y to mlt, mlat, where x**2 + y**2 = 1 corresponds to self.minlat
 
@@ -814,7 +818,7 @@ class Polarplot(object):
             DESCRIPTION.
         y : TYPE
             DESCRIPTION.
-        bypass : boolean, optional
+        ignore_plot_limits : boolean, optional
             When True the conversion will ignore the limits of the plot allowing plotting outside
             the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
 
@@ -828,17 +832,16 @@ class Polarplot(object):
         """
         x, y = np.array(x, ndmin = 1, dtype='float64'), np.array(y, ndmin = 1, dtype='float64') # convert to array to allow item assignment
 
-        lat = 90 - np.sqrt(x**2 + y**2)*(90. - self.minlat)
+        mlat = 90 - np.sqrt(x**2 + y**2)*(90. - self.minlat)
         mlt = np.arctan2(y, x)*12/np.pi + 6
-        mlt[mlt < 0] += 24
-        mlt[mlt > 24] -= 24
-        if not bypass:
-            nan_index= (~eval(self.mltlims)) | (lat<self.minlat)
+        mlt = mlt % 24
+
+        if ignore_plot_limits:
+            return mlat, mlt
         else:
-            nan_index= np.bool8(np.zeros_like(x))
-        mlt[nan_index]=np.nan
-        lat[nan_index]=np.nan
-        return lat.squeeze()[()], mlt.squeeze()[()]
+            mask = np.ones_like(mlt)
+            mask[(~eval(self.mltlims)) | (mlat < self.minlat)] = np.nan
+            return mlat * mask, mlt * mask
 
 
     def _northEastToCartesian(self, north, east, mlt):
