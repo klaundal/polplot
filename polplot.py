@@ -7,9 +7,7 @@ from matplotlib import rc
 from matplotlib.patches import Polygon, Ellipse
 from matplotlib.collections import PolyCollection, LineCollection
 
-# Added by AØH 17/06/2022 for Lompe, should be changed when merged with Lompe 
-from lompe.utils.sunlight import terminator
-
+d2r = np.pi / 180
 
 # rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 rc('font', **{'family': 'sans-serif', 'sans-serif': ['Verdana']})
@@ -22,8 +20,7 @@ class Polarplot(object):
 
             **kwargs are the plot parameters for the grid
 
-            this is a class which handles plotting in polar coordinates, specifically
-            an MLT/MLAT grid or similar
+            this is a class which handles plotting in polar coordinates, specifically a latitude-local time grid
 
             Example:
             --------
@@ -37,36 +34,28 @@ class Polarplot(object):
 
             where memberfunctions include:
             plotgrid()                           - called by __init__
-            plot(mlat, mlt, **kwargs)            - works like plt.plot
-            write(mlat, mlt, text, **kwargs)     - works like plt.text
-            scatter(mlat, mlt, **kwargs)         - works like plt.scatter
-            writeMLTlabels(mlat = 48, **kwargs)  - writes MLT at given mlat - **kwargs to plt.text
-            plotarrows(mlats, mlts, north, east) - works like plt.arrow (accepts **kwargs too)
-            contour(mlat, mlt, f)                - works like plt.contour
-            contourf(mlat, mlt, f)               - works like plt.contourf
+            plot(lat, lt, **kwargs)            - works like plt.plot
+            text(lat, lt, text, **kwargs)      - works like plt.text
+            scatter(lat, lt, **kwargs)         - works like plt.scatter
+            contour(lat, lt, f)                - works like plt.contour
+            contourf(lat, lt, f)               - works like plt.contourf
         
 
         Parameters
         ----------
-        ax : TYPE
-            DESCRIPTION.
-        minlat : TYPE, optional
-            DESCRIPTION. The default is 50.
-        plotgrid : TYPE, optional
-            DESCRIPTION. The default is True.
+        ax : matplotlib AxesSubplot object
+        minlat : scalar, optional
+            low latitude boundary of the plot. The default is 50.
+        plotgrid : bool, optional
+            Set True to plot a grid. The default is True.
         sector : string, optional
             Used to generate portions of polar plot.
-            Can either use one of the following strings: 'all', 'dusk', 'dawn', 'night', 'day'. 
-            Or can be defined using numbers for example '18-6' will produce the samem as night 
-            while '6-18' will produce the same as day. The default is 'all'.
-        **kwargs : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
+            Can either use one of the following strings: 'all', 'dusk', 'dawn', 'night', 'day'. Or can be defined using numbers for example '18-6' will produce the same as night while '6-18' will produce the same as day. The default is 'all'.
+        **kwargs : dict
+            Keywords passed to the plot function to control grid lines.
 
         """
+
         self.minlat = minlat # the lower latitude boundary of the plot
         self.ax = ax
         self.ax.axis('equal')
@@ -81,23 +70,23 @@ class Polarplot(object):
         if 'linestyle' not in kwargs.keys():
             kwargs['linestyle'] = '--'
 
-        # define the mlt limits
+        # define the lt limits
         if sector.lower() == 'all':
-            self.mltlims = 'mlt >= 0'
+            self.ltlims = 'lt >= 0'
         elif sector.lower() == 'dusk':
-            self.mltlims = '(mlt >= 12) | (mlt == 0)'
+            self.ltlims = '(lt >= 12) | (lt == 0)'
         elif sector.lower() == 'dawn':
-            self.mltlims = '(mlt <= 12) | (mlt == 24)'
+            self.ltlims = '(lt <= 12) | (lt == 24)'
         elif sector.lower() == 'night':
-            self.mltlims = '(mlt >= 18) | (mlt <= 6)'
+            self.ltlims = '(lt >= 18) | (lt <= 6)'
         elif sector.lower() == 'day':
-            self.mltlims = '(mlt >= 6) & (mlt <=18)'
+            self.ltlims = '(lt >= 6) & (lt <=18)'
         else:
             sector = [float(s) for s in sector.split('-')]
             if sector[0]> sector[-1]:
-                self.mltlims= f'(mlt>={sector[0]})|(mlt<={sector[-1]})'
+                self.ltlims= f'(lt>={sector[0]})|(lt<={sector[-1]})'
             else:
-                self.mltlims= f'(mlt>={sector[0]})&(mlt<={sector[-1]})'
+                self.ltlims= f'(lt>={sector[0]})&(lt<={sector[-1]})'
 
         self.ax.set_axis_off()
 
@@ -106,84 +95,77 @@ class Polarplot(object):
             self.plotgrid(**kwargs)
 
         # set suitable plot limits by drawing a circle at minlat:
-        x, y = self._mltMlatToXY(np.linspace(0, 24, 100), np.full(100, self.minlat))
+        x, y = self._latlt2xy(np.full(100, self.minlat), np.linspace(0, 24, 100))
+        x, y = np.hstack((x, 0)), np.hstack((y, 0)) # add origin
         self.ax.set_xlim(np.nanmin(x) - 0.1, np.nanmax(x) + 0.1)
         self.ax.set_ylim(np.nanmin(y) - 0.1, np.nanmax(y) + 0.1)
 
 
-    def plot(self, mlat, mlt, **kwargs):
-        """ plot curve based on mlat, mlt. Calls matplotlib.plot, so any keywords accepted by this is also accepted here """
+    def plot(self, lat, lt, **kwargs):
+        """ 
+        Wrapper for matplotlib's plot function. Accepts lat, lt instead of x and y
 
-        x, y = self._mltMlatToXY(mlt, mlat)
+        keywords passed to this function is passed on to matplotlib's plot
+        """
+
+        x, y = self._latlt2xy(lat, lt)
         return self.ax.plot(x, y, **kwargs)
     
 
-    def text(self, mlat, mlt, text, ignore_plot_limits=False, **kwargs):
-        """ calls write() - write text on specified mlat, mlt.
+    def text(self, lat, lt, text, ignore_plot_limits=False, **kwargs):
+        """ 
+        Wrapper for matplotlib's text function. Accepts lat, lt instead of x and y
 
+        keywords passed to this function is passed on to matplotlib's text
         """
-        self.write(mlat, mlt, text, ignore_plot_limits, **kwargs)
 
-    
-    def write(self, mlat, mlt, text, ignore_plot_limits=False, **kwargs):
-        """
-        write text on specified mlat, mlt. **kwargs go to matplotlib.pyplot.text
-
-        Parameters
-        ----------
-        mlat : TYPE
-            DESCRIPTION.
-        mlt : TYPE
-            DESCRIPTION.
-        text : TYPE
-            DESCRIPTION.
-        ignore_plot_limits : boolean, optional
-            When True the conversion will ignore the limits of the plot allowing plotting outside
-            the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
-
-        **kwargs : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        TYPE
-            DESCRIPTION.
-
-        """
-        x, y = self._mltMlatToXY(mlt, mlat, ignore_plot_limits=ignore_plot_limits)
+        x, y = self._latlt2xy(lat, lt, ignore_plot_limits=ignore_plot_limits)
 
         if np.isfinite(x + y):
             return self.ax.text(x, y, text, **kwargs)
         else:
             print('text outside plot limit - set "ignore_plot_limits = True" to override')
 
+    
+    def write(self, lat, lt, text, ignore_plot_limits=False, **kwargs):
+        """ Alias for text, a wapper for matplotlib's text function. Accepts lat, lt instead of x and y
 
-    def scatter(self, mlat, mlt, **kwargs):
-        """ scatterplot on the polar grid. **kwargs go to matplotlib.pyplot.scatter """
+        keywords passed to this function is passed on to matplotlib's text
+        """
 
-        x, y = self._mltMlatToXY(mlt, mlat)
+        self.text(lat, lt, text, ignore_plot_limits, **kwargs)
+
+
+    def scatter(self, lat, lt, **kwargs):
+        """ 
+        Wrapper for matplotlib's scatter function. Accepts lat, lt instead of x and y
+
+        keywords passed to this function is passed on to matplotlib's scatter
+        """
+
+        x, y = self._latlt2xy(lat, lt)
         c = self.ax.scatter(x, y, **kwargs)
         return c
 
 
     def plotgrid(self, labels=False, **kwargs):
-        """ plot mlt, mlat-grid on self.ax 
+        """ plot lt, lat-grid on self.ax 
 
         parameters
         ----------
         labels: bool
-            set to True to include mlat/mlt labels
+            set to True to include lat/lt labels
         **kwarsgs: dictionary
             passed to matplotlib's plot function (for linestyle etc.)
 
         """
 
-        for mlt in [0, 6, 12, 18]:
-            self.plot([self.minlat, 90], [mlt, mlt], **kwargs)
+        for lt in [0, 6, 12, 18]:
+            self.plot([self.minlat, 90], [lt, lt], **kwargs)
 
-        mlts = np.linspace(0, 24, 100)
-        for mlat in np.r_[90: self.minlat -1e-12 :-10]:
-            self.plot(np.full(100, mlat), mlts, **kwargs)
+        lts = np.linspace(0, 24, 100)
+        for lat in np.r_[90: self.minlat -1e-12 :-10]:
+            self.plot(np.full(100, lat), lts, **kwargs)
         
         # add MLAT and MLT labels to axis
         if labels:
@@ -191,56 +173,56 @@ class Polarplot(object):
             self.writeMLTlabels()
 
 
-    def writeMLTlabels(self, mlat = None, degrees = False, **kwargs):
+    def writeMLTlabels(self, lat = None, degrees = False, **kwargs):
         """ write MLT labels at given latitude (default minlat - 2)
             if degrees is true, the longitude will be written instead of hour (with 0 at midnight)
         """
-        if mlat is None:
-            mlat = self.minlat - 2
+        if lat is None:
+            lat = self.minlat - 2
         labels=[]
         if degrees:
             if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                labels.append(self.write(mlat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dawn', 'day']:
-                labels.append(self.write(mlat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                labels.append(self.write(mlat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dusk', 'day']:
-                labels.append(self.write(mlat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
         else:
-            mlt=np.array([0, 24])
-            if any(eval(self.mltlims)):
-                labels.append(self.write(mlat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
-            mlt=6
-            if eval(self.mltlims):
-                labels.append(self.write(mlat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
-            mlt=12
-            if eval(self.mltlims):
-                labels.append(self.write(mlat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
-            mlt=18
-            if eval(self.mltlims):
-                labels.append(self.write(mlat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+            lt=np.array([0, 24])
+            if any(eval(self.ltlims)):
+                labels.append(self.write(lat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+            lt=6
+            if eval(self.ltlims):
+                labels.append(self.write(lat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
+            lt=12
+            if eval(self.ltlims):
+                labels.append(self.write(lat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+            lt=18
+            if eval(self.ltlims):
+                labels.append(self.write(lat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
 
             return labels
 
     
     # added by AØH 20/06/2022 to plot magnetic latitude labels
-    def writeMLATlabels(self, mlt = None, **kwargs):
+    def writeMLATlabels(self, lt = None, **kwargs):
         """ write magnetic latitude labels """
-        if mlt == None:
-            mlt = 3
+        if lt == None:
+            lt = 3
         if kwargs is not None:
-            mlatkwargs = {'rotation':45, 'color':'lightgrey', 'backgroundcolor':'white', 'zorder':2, 'alpha':1.}
-            mlatkwargs.update(kwargs)
+            latkwargs = {'rotation':45, 'color':'lightgrey', 'backgroundcolor':'white', 'zorder':2, 'alpha':1.}
+            latkwargs.update(kwargs)
         labels = []
-        for mlat in np.r_[self.minlat:81:10]:
-            labels.append(self.write(mlat, mlt, str(mlat)+'$^{\circ}$', ignore_plot_limits = False, **mlatkwargs))
+        for lat in np.r_[self.minlat:81:10]:
+            labels.append(self.write(lat, lt, str(lat)+'$^{\circ}$', ignore_plot_limits = False, **latkwargs))
         
         return labels
 
 
-    def plotpins(self, mlats, mlts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
-        """ like plotarrows, only it's not arrows but a dot with a line pointing in the arrow direction
+    def plotpins(self, lats, lts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
+        """ plot vector field. Each vector is a dot with a line pointing in the vector direction
 
             kwargs go to ax.plot
 
@@ -251,8 +233,8 @@ class Polarplot(object):
 
         """
 
-        mlts = mlts.flatten()
-        mlats = mlats.flatten()
+        lts = lts.flatten()
+        lats = lats.flatten()
         north = north.flatten()
         east = east.flatten()
         R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
@@ -268,13 +250,13 @@ class Polarplot(object):
             scale = 0.1/SCALE
 
         segments = []
-        for i in range(len(mlats)):
+        for i in range(len(lats)):
 
-            mlt = mlts[i]
-            mlat = mlats[i]
+            lt = lts[i]
+            lat = lats[i]
 
-            x, y = self._mltMlatToXY(mlt, mlat)
-            dx, dy = R.dot(self._northEastToCartesian(north[i], east[i], mlt).reshape((2, 1))).flatten()
+            x, y = self._latlt2xy(lat, lt)
+            dx, dy = R.dot(self._northEastToCartesian(north[i], east[i], lt).reshape((2, 1))).flatten()
 
             segments.append([(x, y), (x + dx*scale, y + dy*scale)])
 
@@ -282,11 +264,11 @@ class Polarplot(object):
         self.ax.add_collection(LineCollection(segments, colors = colors, **kwargs))
 
         if markersize != 0:
-            self.scatter(mlats, mlts, marker = marker, c = markercolor, s = markersize, edgecolors = markercolor)
+            self.scatter(lats, lts, marker = marker, c = markercolor, s = markersize, edgecolors = markercolor)
 
 
-    def quiver(self, mlat, mlt, north, east, rotation = 0, qkeyproperties = None, **kwargs):
-        """ wrapper for matplotlib's quiver function, just for mlat/mlt coordinates and
+    def quiver(self, lat, lt, north, east, rotation = 0, qkeyproperties = None, **kwargs):
+        """ wrapper for matplotlib's quiver function, just for lat/lt coordinates and
             east/north components. Rotation specifies a rotation angle for the vectors,
             which could be convenient if you want to rotate magnetic field measurements
             to an equivalent current direction
@@ -299,14 +281,14 @@ class Polarplot(object):
 
         """
 
-        mlt = mlt.flatten()
-        mlat = mlat.flatten()
+        lt = lt.flatten()
+        lat = lat.flatten()
         north = north.flatten()
         east = east.flatten()
         R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
 
-        x, y = self._mltMlatToXY(mlt, mlat)
-        dx, dy = R.dot(self._northEastToCartesian(north, east, mlt))
+        x, y = self._latlt2xy(lat, lt)
+        dx, dy = R.dot(self._northEastToCartesian(north, east, lt))
 
         q = self.ax.quiver(x, y, dx, dy, **kwargs)
 
@@ -320,7 +302,7 @@ class Polarplot(object):
 
 
 
-    def plottrack(self, mlats, mlts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', color = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
+    def plottrack(self, lats, lts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', color = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
         """ like plotpins, only it's not a line pointing in the arrow direction but a dot at the tip of the arrow
 
             kwargs go to ax.plot
@@ -332,8 +314,8 @@ class Polarplot(object):
 
         """
 
-        mlts = mlts.flatten()
-        mlats = mlats.flatten()
+        lts = lts.flatten()
+        lats = lats.flatten()
         north = north.flatten()
         east = east.flatten()
         R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
@@ -354,13 +336,13 @@ class Polarplot(object):
             scale = 0.1/SCALE
 
         xs, ys, dxs, dys = [],[],[],[]
-        for i in range(len(mlats)):#mlt, mlat in zip(mlts, mlats):#mlatenumerate(means.index):
+        for i in range(len(lats)):
 
-            mlt = mlts[i]
-            mlat = mlats[i]
+            lt = lts[i]
+            lat = lats[i]
 
-            x, y = self._mltMlatToXY(mlt, mlat)
-            dx, dy = R.dot(self._northEastToCartesian(north[i], east[i], mlt).reshape((2, 1))).flatten()
+            x, y = self._latlt2xy(lat, lt)
+            dx, dy = R.dot(self._northEastToCartesian(north[i], east[i], lt).reshape((2, 1))).flatten()
             xs.append(x)
             ys.append(y)
             dxs.append(dx)
@@ -373,11 +355,13 @@ class Polarplot(object):
             return self.ax.scatter(xs+dxs,ys+dys,marker = marker, c = markercolor, s = markersize, edgecolors = markercolor)
 
 
-    def contour(self, mlat, mlt, f, **kwargs):
-        """ plot contour on grid, **kwargs are given to self.ax.contour. MLT in hours - no rotation
-        """
+    def contour(self, lat, lt, f, **kwargs):
+        """ 
+        Wrapper for matplotlib's contour function. Accepts lat, lt instead of x and y
 
-        xea, yea = self._mltMlatToXY(mlt.flatten(), mlat.flatten())
+        keywords passed to this function is passed on to matplotlib's contour
+        """
+        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten())
 
         # convert to cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
@@ -388,11 +372,14 @@ class Polarplot(object):
         return self.ax.contour(xx, yy, gridf, **kwargs)
 
 
-    def contourf(self, mlat, mlt, f, **kwargs):
-        """ plot contour on grid, **kwargs are given to self.ax.contour. MLT in hours - no rotation
+    def contourf(self, lat, lt, f, **kwargs):
+        """ 
+        Wrapper for matplotlib's contourf function. Accepts lat, lt instead of x and y
+
+        keywords passed to this function is passed on to matplotlib's contourf
         """
 
-        xea, yea = self._mltMlatToXY(mlt.flatten(), mlat.flatten())
+        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten())
 
         # convert to cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
@@ -402,129 +389,152 @@ class Polarplot(object):
         # ... and plot
         return self.ax.contourf(xx, yy, gridf, **kwargs)
 
-    def fill(self, mlat, mlt, **kwargs):
-        """ Fill polygon defined in mlat/mlt, **kwargs are given to self.ax.contour. MLT in hours - no rotation
+
+    def fill(self, lat, lt, **kwargs):
+        """ Fill polygon defined in lat/lt, **kwargs are given to self.ax.contour. MLT in hours - no rotation
         """
 
-        xx, yy = self._mltMlatToXY(mlt.flatten(), mlat.flatten())
+        xx, yy = self._latlt2xy(lat.flatten(), lt.flatten())
 
         # plot
         return self.ax.fill(xx, yy, **kwargs)
 
     # TODO: This needs work, but check out utils.terminator() first! (AØH 17/06/2022)
-    # def plot_terminator(self, position, sza = 90, north = True, shadecolor = None, terminatorcolor = 'black', terminatorlinewidth = 1, shadelinewidth = 0, **kwargs):
-    #      """ shade the area antisunward of the terminator
+
+    def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None,shadelinewidth = 0, **kwargs):
+        """ shade the area antisunward of the terminator
     
-    #           position            -- either a scalar or a datetime object
-    #                                if scalar: interpreted as the signed magnetic colatitude of the terminator, positive on dayside, negative on night side
-    #                                if datetime: terminator is calculated, and converted to magnetic apex coordinates (refh = 0, height = 0)
-    #          sza                 -- sza to locate terminator, used if position is datetime
-    #          north               -- True if northern hemisphere, south if not (only matters if position is datetime)
-    #          shadecolor               -- color of the shaded area - default None
-    #          shadelinewidth           -- width of the contour surrounding the shaded area - default 0 (invisible)
-    #          terminatorcolor     -- color of the terminator - default black
-    #          terminatorlinewidth -- width of the terminator contour
-    #          **kwargs            -- passed to Polygon
-    
-    
-    #          EXAMPLE: to only plot the terminator (no shade):
-    #          plot_terminator(position, color = 'white') <- sets the shade to white (or something different if the plot background is different)
+              position          -- either a scalar or a datetime object
+                                   if scalar: interpreted as the signed magnetic colatitude of the terminator, positive on dayside, negative on night side
+                                   if datetime: terminator is calculated, and converted to magnetic apex coordinates (refh = 0, height = 0)
+             sza                 -- sza to locate terminator, used if position is datetime
+             north               -- True if northern hemisphere, south if not (only matters if position is datetime)
+             shadecolor               -- color of the shaded area - default None
+             shadelinewidth           -- width of the contour surrounding the shaded area - default 0 (invisible)
+             terminatorcolor     -- color of the terminator - default black
+             terminatorlinewidth -- width of the terminator contour
+             **kwargs            -- passed to Polygon
     
     
-    #          useful extensions:
-    #          - height dependence...
-    #      """
+             EXAMPLE: to only plot the terminator (no shade):
+             plot_terminator(position, color = 'white') <- sets the shade to white (or something different if the plot background is different)
     
-    #      if np.isscalar(position): # set the terminator as a horizontal bar
-    #          if position >= 0: # dayside
-    #              position = np.min([90 - self.minlat, position])
-    #              x0, y0 = self._mltMlatToXY(12, 90 - np.abs(position))
-    #          else: #nightside
-    #              x0, y0 = self._mltMlatToXY(24, 90 - np.abs(position))
     
-    #          xr = np.sqrt(1 - y0**2)
-    #          xl = -xr
-    #          lat, left_mlt  = self._XYtomltMlat(xl, y0)
-    #          lat, right_mlt = self._XYtomltMlat(xr, y0)
-    #          if position > -(90 - self.minlat):
-    #              right_mlt += 24
+             useful extensions:
+             - height dependence...
+        """
+
+        print('TODO: implement hemisphere + update documentation + test')
     
-    #          x = np.array([xl, xr])
-    #          y = np.array([y0, y0])
-    
-    #      else: # calculate the terminator trajectory
+        if np.isscalar(time): # time is interpreted as dipole tilt angle
              
-    #          # local added by Amalie 17/06/2022
-    #          try:
-    #              import apexpy
-    #          except ModuleNotFoundError:
-    #              raise ModuleNotFoundError('plot_terminator requires apexpy module.')
-                 
-    #          a = apexpy.Apex(date = position)
+            y0 = -(time + sza - 90) / (90. - self.minlat) # noon-midnight coordinate
+            xr = np.sqrt(1 - y0**2)
+   
+            x = np.array([-xr, xr]).flatten()
+            y = np.array([y0, y0]).flatten()
     
-    #          t_glat, t_glon = terminator(position, sza = sza, resolution = 3600)
-    #          t_mlat, t_mlon = a.geo2apex(t_glat, t_glon, 0)
-    #          t_mlt          = a.mlon2mlt(t_mlon, position)
+        else: # time should be a datetime object
+                         
+            sslat, sslon = subsol(time)
+
+            # make cartesian vector
+            x = np.cos(sslat * d2r) * np.cos(sslon * d2r)
+            y = np.cos(sslat * d2r) * np.sin(sslon * d2r) 
+            z = np.sin(sslat * d2r)
+            ss = np.array([x, y, z]).flatten()
+
+            # construct a vector pointing roughly towards dawn, and normalize
+            t0 = np.cross(ss, np.array([0, 0, 1]))
+            t0 = t0/np.linalg.norm(t0)
+
+            # make a new vector pointing northward at the 90 degree SZA contour:
+            sza90 = np.cross(t0, ss)
+
+            # rotate this about the dawnward vector to get specified SZA contour
+            rotation_angle = (sza - 90) * d2r
+
+            sza_vector = sza90 * np.cos(rotation_angle) + np.cross(t0, sza90) * np.sin(rotation_angle) + t0 * (np.sum(t0*sza90)) * (1 - np.cos(rotation_angle)) # (rodrigues formula)
+            sza_vector = sza_vector.flatten()
+
+            # rotate this about the sun-Earth line to trace out the trajectory:
+            angles = np.r_[-np.pi : np.pi: 2*np.pi / 360][np.newaxis, :]
+            r = sza_vector[:, np.newaxis] * np.cos(angles) + np.cross(ss, sza_vector)[:, np.newaxis] * np.sin(angles) + ss[:, np.newaxis] * (np.sum(t0*sza90)) * (1 - np.cos(rotation_angle))
+
+            # convert to spherical
+            t_lat = 90 - np.arccos(r[2]) / d2r
+            t_lon = (np.arctan2(r[1], r[0])*180/np.pi) % 360
+
+            londiff = (t_lon - sslon + 180) % 360 - 180 # signed difference in longitude
+            t_lt = (180. + londiff)/15. # convert to mlt with ssqlon at noon
+           
     
-    #          # limit contour to correct hemisphere:
-    #          iii = (t_mlat >= self.minlat) if north else (t_mlat <= -self.minlat)
-    #          if len(iii) == 0:
-    #              return 0 # terminator is outside plot
-    #          t_mlat = t_mlat[iii]
-    #          t_mlt = t_mlt[iii]
+
+            if apex is not None:
+                mlat, mlon = apex.geo2apex(t_lat, t_lon, apex.refh)
+                mlt = apex.mlon2mlt(mlon, time)
+                t_lat, t_lt = mlat, mlt
+
+            # limit contour to correct hemisphere:
+            iii = (t_lat >= self.minlat) if north else (t_lat <= -self.minlat)
+            if len(iii) == 0:
+                return 0 # terminator is outside plot
+            t_lat = t_lat[iii]
+            t_lt = t_lt[iii]
+
+
+            x, y = self._latlt2xy(t_lat, t_lt)
     
-    #          x, y = self._mltMlatToXY(t_mlt, t_mlat)
-    
-    #          # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
-    #          xmin = np.argmin(x)
-    #          xmax = np.argmax(x)
-    #          left_mlt = t_mlt[xmin]
-    #          right_mlt = t_mlt[xmax]
-    #          if right_mlt < left_mlt:
-    #              right_mlt += 24
-    
-    #      mlat_b = np.full(100, self.minlat)
-    #      mlt_b  = np.linspace(left_mlt, right_mlt, 100)
-    #      xb, yb = self._mltMlatToXY(mlt_b, mlat_b)
-    
-    #      # sort x and y to be in ascending order
-    #      iii = np.argsort(x)
-    #      x = x[iii[::-1]]
-    #      y = y[iii[::-1]]
-    
-    #      if terminatorcolor is not None:
-    #          self.ax.plot(x, y, color = terminatorcolor, linewidth = terminatorlinewidth)
-    #      if shadecolor is not None:
-    #          kwargs['color'] = shadecolor
-    #          kwargs['linewidth'] = shadelinewidth
-    #          shade = Polygon(np.vstack((np.hstack((x, xb)), np.hstack((y, yb)))).T, closed = True, **kwargs)
-    #          self.ax.add_patch(shade)
+            # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
+            xmin = np.argmin(x)
+            xmax = np.argmax(x)
+            left_lt = t_lt[xmin]
+            right_lt = t_lt[xmax]
+            if right_lt < left_lt:
+                right_lt += 24
+
+        self.ax.plot(x, y, **kwargs)
+
+        x0, x1 = np.min([x[0], x[-1]]), np.max([x[0], x[-1]])
+        y0, y1 = np.min([y[0], y[-1]]), np.max([y[0], y[-1]])
+
+        a0 = np.arctan2(y0, x0)
+        a1 = np.arctan2(y1, x1)
+        if a1 < a0: a1 += 2*np.pi
+
+        a = np.linspace(a0, a1, 100)[::-1]
+
+        xx, yy = np.cos(a), np.sin(a)
+
+        if shadecolor is not None:
+             shade = Polygon(np.vstack((np.hstack((x, xx)), np.hstack((y, yy)))).T, closed = True, color = shadecolor, linewidth = shadelinewidth)
+             self.ax.add_patch(shade)
 
 
 
-    def filled_cells(self, mlat, mlt, mlatres, mltres, data, resolution = 10, crange = None, levels = None, bgcolor = None, verbose = False, **kwargs):
-        """ specify a set of cells in mlat and mlt, along with a data array,
+    def filled_cells(self, lat, lt, latres, ltres, data, resolution = 10, crange = None, levels = None, bgcolor = None, verbose = False, **kwargs):
+        """ specify a set of cells in lat and lt, along with a data array,
             and make a color plot of the cells
 
         """
 
-        if not all([len(mlat) == len(q) for q in [mlt,mltres,data]]):
+        if not all([len(lat) == len(q) for q in [lt,ltres,data]]):
             print("WARNING: Input arrays to filled_cells of unequal length! Your plot is probably incorrect")
 
-        mlat, mlt, mlatres, mltres, data = map(np.ravel, [mlat, mlt, mlatres, mltres, data])
+        lat, lt, latres, ltres, data = map(np.ravel, [lat, lt, latres, ltres, data])
 
         if verbose:
-            print(mlt.shape, mlat.shape, mlatres.shape, mltres.shape)
+            print(lt.shape, lat.shape, latres.shape, ltres.shape)
 
-        la = np.vstack(((mlt - 6) / 12. * np.pi + i * mltres / (resolution - 1.) / 12. * np.pi for i in range(resolution))).T
+        la = np.vstack(((lt - 6) / 12. * np.pi + i * ltres / (resolution - 1.) / 12. * np.pi for i in range(resolution))).T
         if verbose:
             print (la.shape)
         ua = la[:, ::-1]
 
-        vertslo = np.dstack(((90 - mlat          )[:, np.newaxis] / (90. - self.minlat) * np.cos(la),
-                             (90 - mlat          )[:, np.newaxis] / (90. - self.minlat) * np.sin(la)))
-        vertshi = np.dstack(((90 - mlat - mlatres)[:, np.newaxis] / (90. - self.minlat) * np.cos(ua),
-                             (90 - mlat - mlatres)[:, np.newaxis] / (90. - self.minlat) * np.sin(ua)))
+        vertslo = np.dstack(((90 - lat          )[:, np.newaxis] / (90. - self.minlat) * np.cos(la),
+                             (90 - lat          )[:, np.newaxis] / (90. - self.minlat) * np.sin(la)))
+        vertshi = np.dstack(((90 - lat - latres)[:, np.newaxis] / (90. - self.minlat) * np.cos(ua),
+                             (90 - lat - latres)[:, np.newaxis] / (90. - self.minlat) * np.sin(ua)))
         verts = np.concatenate((vertslo, vertshi), axis = 1)
 
         if verbose:
@@ -560,17 +570,17 @@ class Polarplot(object):
         self.ax.add_collection(coll)
 
 
-    def plotimg(self,mlat,mlt,image,corr=True , crange = None, bgcolor = None, **kwargs):
+    def plotimg(self,lat,lt,image,corr=True , crange = None, bgcolor = None, **kwargs):
         """
         Displays an image in polar coordinates.
-        mlat,mlt,image are m x n arrays.
-        If corr == True, mlat and mlt are corrected to edge coordinates. The plotted image is (m-2) x (n-2)
-        If corr == False, mlat and mlat are assumed to be edge coordinates (plotted with a small offset). The plotted image is (m-1) x (n-1).
+        lat,lt,image are m x n arrays.
+        If corr == True, lat and lt are corrected to edge coordinates. The plotted image is (m-2) x (n-2)
+        If corr == False, lat and lat are assumed to be edge coordinates (plotted with a small offset). The plotted image is (m-1) x (n-1).
         crange is a tuple giving lower and upper colormap limits.
         bgcolor is a str giving background color inside the polar region.
         """
 
-        x,y =self._mltMlatToXY(mlt,mlat)
+        x,y =self._latlt2xy(lat, lt)
         if corr:
             xe = np.full(np.subtract(x.shape,(1,1)),np.nan)
             ye = np.full(np.subtract(y.shape,(1,1)),np.nan)
@@ -627,10 +637,10 @@ class Polarplot(object):
         data = np.array(data)
 
         # MAKE VERTICES
-        colats, mlts = np.array(list(keys)).T
-        mlats = np.abs(90. - colats)
+        colats, lts = np.array(list(keys)).T
+        lats = np.abs(90. - colats)
 
-        mltres, mlatres = 1, 1
+        ltres, latres = 1, 1
 
         if 'cmap' in kwargs.keys():
             cmap = kwargs['cmap']
@@ -639,17 +649,17 @@ class Polarplot(object):
             cmap = plt.cm.RdBu_r
 
         if not contour: # plot so that the grid cells are seen
-            mlatl, mltl = mlats, mlts
-            mlatu = mlatl + mlatres
-            mltr  = mltl + mltres
+            latl, ltl = lats, lts
+            latu = latl + latres
+            ltr  = ltl + ltres
             verts = np.empty((len(keys), 20, 2))
 
-            for i in range(len(mlts)):
-                # convert corners to cartesian (mlat 90 at origin, mlat 0 at distance 1 from origin)
-                la = np.linspace((mltl[i]-6)/12.*np.pi, (mltr[i]-6)/12.*np.pi, 10)
-                ua = np.linspace((mltl[i]-6)/12.*np.pi, (mltr[i]-6)/12.*np.pi, 10)[::-1]
-                verts[i, :10, :]  = (90 - mlatl[i])/(90 - self.minlat) * np.array([np.cos(la), np.sin(la)]).T
-                verts[i,  10:, :] = (90 - mlatu[i])/(90 - self.minlat) * np.array([np.cos(ua), np.sin(ua)]).T
+            for i in range(len(lts)):
+                # convert corners to cartesian (lat 90 at origin, lat 0 at distance 1 from origin)
+                la = np.linspace((ltl[i]-6)/12.*np.pi, (ltr[i]-6)/12.*np.pi, 10)
+                ua = np.linspace((ltl[i]-6)/12.*np.pi, (ltr[i]-6)/12.*np.pi, 10)[::-1]
+                verts[i, :10, :]  = (90 - latl[i])/(90 - self.minlat) * np.array([np.cos(la), np.sin(la)]).T
+                verts[i,  10:, :] = (90 - latu[i])/(90 - self.minlat) * np.array([np.cos(ua), np.sin(ua)]).T
 
             # the sign of the data is changed to make the color scale consistent with AMPERE summary plots
             coll = PolyCollection(verts[np.isfinite(data)], array = data[np.isfinite(data)], cmap = cmap, edgecolors='none', **kwargs)
@@ -658,7 +668,7 @@ class Polarplot(object):
             self.ax.add_collection(coll)
 
         else: # plot a smooth contour
-            coll = self.contourf(mlats, mlts, data, cmap = cmap, levels = np.linspace(crange[0], crange[1], nlevels), extend = 'both', **kwargs)
+            coll = self.contourf(lats, lts, data, cmap = cmap, levels = np.linspace(crange[0], crange[1], nlevels), extend = 'both', **kwargs)
 
 
 
@@ -691,10 +701,6 @@ class Polarplot(object):
             cbax.set_xlim(0, 1)
             cbax.set_xticks([0, 1])
             cbax.set_xticklabels(['', ''])
-
-
-
-
 
         return coll
     
@@ -729,9 +735,9 @@ class Polarplot(object):
             if geo:
                 yield lat, lon/15 # to LT
             else:
-                mlat, mlon= A.geo2apex(lat, lon, height)
-                mlt= A.mlon2mlt(mlon, datetime)
-                yield mlat, mlt
+                lat, mlon= A.geo2apex(lat, lon, height)
+                lt= A.mlon2lt(mlon, datetime)
+                yield lat, lt
                 
 
         for mls in multilinestrings:
@@ -742,11 +748,11 @@ class Polarplot(object):
                     lat[ind], lon[ind]= np.nan, np.nan
                     yield lat, lon/15 # to LT
                 else:
-                    mlat, mlon= A.geo2apex(lat, lon, height)
-                    ind= mlat<self.minlat
-                    mlt= A.mlon2mlt(mlon, datetime)
-                    mlat[ind], mlt[ind]= np.nan, np.nan
-                    yield mlat, mlt
+                    lat, mlon= A.geo2apex(lat, lon, height)
+                    ind= lat<self.minlat
+                    lt= A.mlon2lt(mlon, datetime)
+                    lat[ind], lt[ind]= np.nan, np.nan
+                    yield lat, lt
                     
     
     def coastlines(self, datetime, geo=False, height=0, map_kwargs=None, plot_kwargs=None):
@@ -765,14 +771,14 @@ class Polarplot(object):
         return plots
 
 
-    def _mltMlatToXY(self, mlt, mlat, ignore_plot_limits=False):
+    def _latlt2xy(self, lat, lt, ignore_plot_limits=False):
         """
 
         Parameters
         ----------
-        mlt : TYPE
+        lt : TYPE
             DESCRIPTION.
-        mlat : TYPE
+        lat : TYPE
             DESCRIPTION.
         ignore_plot_limits : boolean, optional
             When True the conversion will ignore the limits of the plot allowing plotting outside
@@ -790,14 +796,14 @@ class Polarplot(object):
 
         """
 
-        mlt = np.array(mlt).flatten() % 24
-        mlat = np.array(mlat).flatten()
+        lt = np.array(lt).flatten() % 24
+        lat = np.array(lat).flatten()
 
-        if mlt.size!= mlat.size:
+        if lt.size!= lat.size:
             raise ValueError('x and y must be the same size')
 
-        r = (90. - np.abs(mlat))/(90. - self.minlat)
-        a = (mlt - 6.)/12.*np.pi
+        r = (90. - np.abs(lat))/(90. - self.minlat)
+        a = (lt - 6.)/12.*np.pi
 
         x, y = r*np.cos(a), r*np.sin(a)
 
@@ -805,12 +811,12 @@ class Polarplot(object):
             return x, y
         else:
             mask = np.ones_like(x)
-            mask[(~eval(self.mltlims)) | (mlat < self.minlat)] = np.nan
+            mask[(~eval(self.ltlims)) | (lat < self.minlat)] = np.nan
             return x * mask, y * mask
 
-    def _XYtomltMlat(self, x, y, ignore_plot_limits=False):
+    def _xy2latlt(self, x, y, ignore_plot_limits=False):
         """
-        convert x, y to mlt, mlat, where x**2 + y**2 = 1 corresponds to self.minlat
+        convert x, y to lt, lat, where x**2 + y**2 = 1 corresponds to self.minlat
 
         Parameters
         ----------
@@ -832,20 +838,20 @@ class Polarplot(object):
         """
         x, y = np.array(x, ndmin = 1, dtype='float64'), np.array(y, ndmin = 1, dtype='float64') # convert to array to allow item assignment
 
-        mlat = 90 - np.sqrt(x**2 + y**2)*(90. - self.minlat)
-        mlt = np.arctan2(y, x)*12/np.pi + 6
-        mlt = mlt % 24
+        lat = 90 - np.sqrt(x**2 + y**2)*(90. - self.minlat)
+        lt = np.arctan2(y, x)*12/np.pi + 6
+        lt = lt % 24
 
         if ignore_plot_limits:
-            return mlat, mlt
+            return lat, lt
         else:
-            mask = np.ones_like(mlt)
-            mask[(~eval(self.mltlims)) | (mlat < self.minlat)] = np.nan
-            return mlat * mask, mlt * mask
+            mask = np.ones_like(lt)
+            mask[(~eval(self.ltlims)) | (lat < self.minlat)] = np.nan
+            return lat * mask, lt * mask
 
 
-    def _northEastToCartesian(self, north, east, mlt):
-        a = (mlt - 6)/12*np.pi # convert MLT to angle with x axis (pointing from pole towards dawn)
+    def _northEastToCartesian(self, north, east, lt):
+        a = (lt - 6)/12*np.pi # convert MLT to angle with x axis (pointing from pole towards dawn)
 
         x1 = np.array([-north*np.cos(a), -north*np.sin(a)]) # arrow direction towards origin (northward)
         x2 = np.array([-east*np.sin(a),  east*np.cos(a)])   # arrow direction eastward
@@ -858,10 +864,159 @@ class Polarplot(object):
         def format_coord(x, y):
             # x, y are data coordinates
             # convert to display coords
-            display_coord = current._XYtomltMlat(x, y)[::-1]
+            display_coord = current._xy2latlt(x, y)[::-1]
             ax_coord= (float(i) for i in display_coord)
             string_original= 'x={:.2f}, y={:.2f}'.format(x, y)
-            string_magnetic= 'mlt={:.2f}, mlat={:.2f}'.format(*ax_coord)
+            string_magnetic= 'lt={:.2f}, lat={:.2f}'.format(*ax_coord)
             return (string_original.ljust(20)+string_magnetic)
         return format_coord
  
+
+
+
+
+# Helper functions
+# ----------------
+def date_to_doy(month, day, leapyear = False):
+    """ return day of year (DOY) at given month, day
+    """
+
+    # check that month in [1, 12]
+    if month < 1 or month > 12:
+        raise ValueError('month not in [1, 12]')
+
+    # check if day < 1
+    if day < 1:
+        raise ValueError('date2doy: day must not be less than 1')
+
+    # check if day exceeds days in months
+    days_in_month = np.array([0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+
+    if day > days_in_month[month]:
+        if not (leapyear & (month == 2) & (day == 29)):
+            raise ValueError('date2doy: day must not exceed number of days in month')
+
+    cumdaysmonth = np.cumsum(days_in_month[:-1]) 
+
+    # day of year minus possibly leap day:
+    doy = cumdaysmonth[month - 1] + day
+
+    # add 1 if leapyear and month >= 3:
+    return doy + leapyear if month >= 3 else doy
+
+
+def is_leapyear(year):
+    """ Check for leapyear
+
+    """
+    if year % 400 == 0:
+        return True
+
+    if year % 100 == 0:
+        return False
+
+    if year % 4 == 0:
+        return True
+
+    else:
+        return False
+
+
+def subsol(time):
+    """ 
+    calculate subsolar point at given datetime(s)
+
+    returns:
+      subsol_lat  -- latitude of the subsolar point
+      subsol_lon  -- longiutde of the subsolar point
+
+    After Fortran code by: 961026 A. D. Richmond, NCAR
+
+    Documentation from original code:
+    Find subsolar geographic latitude and longitude from date and time.
+    Based on formulas in Astronomical Almanac for the year 1996, p. C24.
+    (U.S. Government Printing Office, 1994).
+    Usable for years 1601-2100, inclusive.  According to the Almanac, 
+    results are good to at least 0.01 degree latitude and 0.025 degree 
+    longitude between years 1950 and 2050.  Accuracy for other years 
+    has not been tested.  Every day is assumed to have exactly
+    86400 seconds; thus leap seconds that sometimes occur on December
+    31 are ignored:  their effect is below the accuracy threshold of
+    the algorithm.
+
+    """
+
+    year = time.year
+    # day of year:
+    doy  = date_to_doy(time.month, time.day, is_leapyear(year))
+    # seconds since start of day:
+    ut   = time.hour * 60.**2 + time.minute*60. + time.second 
+ 
+    yr = year - 2000
+
+    if year >= 2100 or year <= 1600:
+        raise ValueError('subsol.py: subsol invalid after 2100 and before 1600')
+
+    nleap = np.floor((year-1601)/4.)
+    nleap = nleap - 99
+
+    # exception for years <= 1900:
+    ncent = np.floor((year-1601)/100.)
+    ncent = 3 - ncent
+    if year <= 1900: nleap = nleap + ncent
+
+    l0 = -79.549 + (-.238699*(yr-4*nleap) + 3.08514e-2*nleap)
+
+    g0 = -2.472 + (-.2558905*(yr-4*nleap) - 3.79617e-2*nleap)
+
+    # Days (including fraction) since 12 UT on January 1 of IYR:
+    df = (ut/86400. - 1.5) + doy
+
+    # Addition to Mean longitude of Sun since January 1 of IYR:
+    lf = .9856474*df
+
+    # Addition to Mean anomaly since January 1 of IYR:
+    gf = .9856003*df
+
+    # Mean longitude of Sun:
+    l = l0 + lf
+
+    # Mean anomaly:
+    g = g0 + gf
+    grad = g*np.pi/180.
+
+    # Ecliptic longitude:
+    lmbda = l + 1.915*np.sin(grad) + .020*np.sin(2.*grad)
+    lmrad = lmbda*np.pi/180.
+    sinlm = np.sin(lmrad)
+
+    # Days (including fraction) since 12 UT on January 1 of 2000:
+    n = df + 365.*yr + nleap
+
+    # Obliquity of ecliptic:
+    epsilon = 23.439 - 4.e-7*n
+    epsrad  = epsilon*np.pi/180.
+
+    # Right ascension:
+    alpha = np.arctan2(np.cos(epsrad)*sinlm, np.cos(lmrad)) * 180./np.pi
+
+    # Declination:
+    delta = np.arcsin(np.sin(epsrad)*sinlm) * 180./np.pi
+
+    # Subsolar latitude:
+    sbsllat = delta
+
+    # Equation of time (degrees):
+    etdeg = l - alpha
+    nrot = np.round(etdeg/360.)
+    etdeg = etdeg - 360.*nrot
+
+    # Apparent time (degrees):
+    aptime = ut/240. + etdeg    # Earth rotates one degree every 240 s.
+
+    # Subsolar longitude:
+    sbsllon = 180. - aptime
+    nrot = np.round(sbsllon/360.)
+    sbsllon = sbsllon - 360.*nrot
+
+    return sbsllat, sbsllon
