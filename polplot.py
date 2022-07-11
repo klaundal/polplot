@@ -401,34 +401,36 @@ class Polarplot(object):
 
     # TODO: This needs work, but check out utils.terminator() first! (AØH 17/06/2022)
 
-    def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None,shadelinewidth = 0, **kwargs):
+    def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None, **kwargs):
         """ shade the area antisunward of the terminator
     
-              position          -- either a scalar or a datetime object
-                                   if scalar: interpreted as the signed magnetic colatitude of the terminator, positive on dayside, negative on night side
-                                   if datetime: terminator is calculated, and converted to magnetic apex coordinates (refh = 0, height = 0)
-             sza                 -- sza to locate terminator, used if position is datetime
-             north               -- True if northern hemisphere, south if not (only matters if position is datetime)
-             shadecolor               -- color of the shaded area - default None
-             shadelinewidth           -- width of the contour surrounding the shaded area - default 0 (invisible)
-             terminatorcolor     -- color of the terminator - default black
-             terminatorlinewidth -- width of the terminator contour
-             **kwargs            -- passed to Polygon
-    
-    
-             EXAMPLE: to only plot the terminator (no shade):
-             plot_terminator(position, color = 'white') <- sets the shade to white (or something different if the plot background is different)
-    
-    
-             useful extensions:
-             - height dependence...
+            Parameters
+            ----------
+            time : float or datetime
+                if datetime, time describes the time for which to calculate the 
+                subsolar point and associated sunlight terminator. If float, it 
+                desribes where to draw a horizontal terminator line - in 
+                degrees from the pole towards the night side (think of it
+                approximately as dipole tilt angle)
+            sza : float, optional 
+                the terminator is defined as contours of this solar zenith angle
+                default 90 degrees
+            north : bool, optional
+                set to True for terminator in the north (default), False for south
+            apex : apexpy.Apex object, optional
+                give an apexpy.Apex object to convert the terminator to magnetic
+                apex coordinates. By default it is plotted in geographic
+            shadecolor : string, optional
+                color of a shade to be drawn on the night side of the 
+                terminator. Default is None, which means that no shade will be
+                drawn
+            kwargs : dict
+                keywords passed to matplotlib's plot function
         """
+        hemisphere = 1 if north else -1
 
-        print('TODO: implement hemisphere + update documentation + test')
-    
-        if np.isscalar(time): # time is interpreted as dipole tilt angle
-             
-            y0 = -(time + sza - 90) / (90. - self.minlat) # noon-midnight coordinate
+        if np.isscalar(time): # time is interpreted as dipole tilt angle 
+            y0 = -(hemisphere * time + sza - 90) / (90. - self.minlat) # noon-midnight coordinate
             xr = np.sqrt(1 - y0**2)
    
             x = np.array([-xr, xr]).flatten()
@@ -458,7 +460,7 @@ class Polarplot(object):
             sza_vector = sza_vector.flatten()
 
             # rotate this about the sun-Earth line to trace out the trajectory:
-            angles = np.r_[-np.pi : np.pi: 2*np.pi / 360][np.newaxis, :]
+            angles = np.r_[-np.pi/2 : 3*np.pi/2: 2*np.pi / 360][np.newaxis, :]
             r = sza_vector[:, np.newaxis] * np.cos(angles) + np.cross(ss, sza_vector)[:, np.newaxis] * np.sin(angles) + ss[:, np.newaxis] * (np.sum(t0*sza90)) * (1 - np.cos(rotation_angle))
 
             # convert to spherical
@@ -468,8 +470,6 @@ class Polarplot(object):
             londiff = (t_lon - sslon + 180) % 360 - 180 # signed difference in longitude
             t_lt = (180. + londiff)/15. # convert to mlt with ssqlon at noon
            
-    
-
             if apex is not None:
                 mlat, mlon = apex.geo2apex(t_lat, t_lon, apex.refh)
                 mlt = apex.mlon2mlt(mlon, time)
@@ -479,12 +479,11 @@ class Polarplot(object):
             iii = (t_lat >= self.minlat) if north else (t_lat <= -self.minlat)
             if len(iii) == 0:
                 return 0 # terminator is outside plot
-            t_lat = t_lat[iii]
+            t_lat = t_lat[iii] #* hemisphere
             t_lt = t_lt[iii]
 
-
             x, y = self._latlt2xy(t_lat, t_lt)
-    
+
             # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
             xmin = np.argmin(x)
             xmax = np.argmax(x)
@@ -507,7 +506,7 @@ class Polarplot(object):
         xx, yy = np.cos(a), np.sin(a)
 
         if shadecolor is not None:
-             shade = Polygon(np.vstack((np.hstack((x, xx)), np.hstack((y, yy)))).T, closed = True, color = shadecolor, linewidth = shadelinewidth)
+             shade = Polygon(np.vstack((np.hstack((x[::hemisphere], xx)), np.hstack((y[::hemisphere], yy)))).T, closed = True, color = shadecolor, linewidth = 0)
              self.ax.add_patch(shade)
 
 
@@ -797,7 +796,7 @@ class Polarplot(object):
         """
 
         lt = np.array(lt).flatten() % 24
-        lat = np.array(lat).flatten()
+        lat = np.abs(np.array(lat).flatten())
 
         if lt.size!= lat.size:
             raise ValueError('x and y must be the same size')
