@@ -1,4 +1,4 @@
-# Code for plotting stuff in polar coordinates (latitude, local time)
+# Code for plotting on latitude/local time grid
 
 A class for making plots in polar coordinates. By default the polar coordinates are called lat (latitude) and LT (local time), since that is what we use this code for most often. lat is 0 at equator and 90 at the pole. lt ranges from 0 to 24 (hours).
 
