@@ -1,6 +1,7 @@
 from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import warnings
 from scipy.interpolate import griddata
 from matplotlib import rc
@@ -8,6 +9,8 @@ from matplotlib.patches import Polygon, Ellipse
 from matplotlib.collections import PolyCollection, LineCollection
 
 d2r = np.pi / 180
+
+datapath = os.path.dirname(os.path.abspath(__file__)) + '/data/'
 
 # rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 rc('font', **{'family': 'sans-serif', 'sans-serif': ['Verdana']})
@@ -399,7 +402,6 @@ class Polarplot(object):
         # plot
         return self.ax.fill(xx, yy, **kwargs)
 
-    # TODO: This needs work, but check out utils.terminator() first! (AØH 17/06/2022)
 
     def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None, **kwargs):
         """ shade the area antisunward of the terminator
@@ -669,11 +671,6 @@ class Polarplot(object):
         else: # plot a smooth contour
             coll = self.contourf(lats, lts, data, cmap = cmap, levels = np.linspace(crange[0], crange[1], nlevels), extend = 'both', **kwargs)
 
-
-
-
-
-
         if cbar:
 
             clim = coll.get_clim()
@@ -703,71 +700,71 @@ class Polarplot(object):
 
         return coll
     
-    
-    def get_projected_coastlines(self, datetime, geo=False, height=0, **kwargs):
-        """ generate coastlines in projected coordinates """
         
-        try:
-            import cartopy.io.shapereader as shpreader
-            from apexpy import Apex
-        except ModuleNotFoundError:
-            ModuleNotFoundError('Package missing. cartopy and apexpy are required for producing coastlines')
+    def coastlines(self, time = None, mag = None, north = True, resolution = '50m', **kwargs):
+        """ plot coastlines 
 
+        Coastline data are read from numpy savez files. These files are made
+        with the download_coastlines.py script in the helper_scripts folder,
+        which uses the cartopy module. 
 
-        if 'resolution' not in kwargs.keys():
-            kwargs['resolution'] = '50m'
-        if 'category' not in kwargs.keys():
-            kwargs['category'] = 'physical'
-        if 'name' not in kwargs.keys():
-            kwargs['name'] = 'coastline'
+        Parameters
+        ----------
+        time: datetime, optional
+            give a datetime to replace longitude with local time when 
+            plotting coastlines
+        mag: apexpy.Apex, optional
+            give an apexpy.Apex object to convert coastlines to magnetic
+            apex coordinates. If None (default), coastlines will be 
+            plotted in geographic coordinates
+        north: bool, optional
+            set to False if you want coastlines plotted for the southern
+            hemisphere. Default is True
+        resolution: string, optional
+            Set to '50m' or '110m' to adjust the resolution of the coastlines.
+            These options correspond to options given to cartopy. Default is 
+            '50m', which is the highest resolution.
+        **kwargs: dict, optional
+            keywords passed to matplotlib's plot function
+        """
 
-        shpfilename = shpreader.natural_earth(**kwargs)
-        reader = shpreader.Reader(shpfilename)
-        coastlines = reader.records()
-        multilinestrings = []
-        A = Apex(date=datetime)
-        for coastline in coastlines:
-            if coastline.geometry.geom_type == 'MultiLineString':
-                multilinestrings.append(coastline.geometry)
-                continue
-            lon, lat = np.array(coastline.geometry.coords[:]).T 
-            if geo:
-                yield lat, lon/15 # to LT
-            else:
-                lat, mlon= A.geo2apex(lat, lon, height)
-                lt= A.mlon2lt(mlon, datetime)
-                yield lat, lt
-                
+        coastlines = np.load(datapath + 'coastlines_' + resolution + '.npz')
 
-        for mls in multilinestrings:
-            for ls in mls:
-                lon, lat = np.array(ls.coords[:]).T
-                if geo:
-                    ind= lat<self.minlat
-                    lat[ind], lon[ind]= np.nan, np.nan
-                    yield lat, lon/15 # to LT
-                else:
-                    lat, mlon= A.geo2apex(lat, lon, height)
-                    ind= lat<self.minlat
-                    lt= A.mlon2lt(mlon, datetime)
-                    lat[ind], lt[ind]= np.nan, np.nan
-                    yield lat, lt
-                    
-    
-    def coastlines(self, datetime, geo=False, height=0, map_kwargs=None, plot_kwargs=None):
-        if (plot_kwargs is None):
-            plot_kwargs= {'color':'k'}
-        elif not('color' in plot_kwargs.keys()):
-            plot_kwargs.update({'color':'k'})
-        plots=[]
-        if map_kwargs is None:
-            for line in self.get_projected_coastlines(datetime,geo=geo,height=height):
-                plots.extend(self.plot(line[0], line[1], **plot_kwargs))
-        else:
-            for line in self.get_projected_coastlines(datetime,geo=geo,height=height, **map_kwargs):
-                plots.extend(self.plot(line[0], line[1], **plot_kwargs))
+        segments = []
+        for cl in coastlines:
+            lat, lon = coastlines[cl]
+
+            # convert lat and lon to magnetic if mag is given:
+            if mag is not None:
+                lat, lon = mag.geo2apex(lat, lon, mag.refh)
             
-        return plots
+            if time is not None: # calculate local time if time is given
+                if mag is None: # calculate geographic local time
+                    sslat, sslon = subsol(time)
+                    londiff = (lon - sslon + 180) % 360 - 180
+                    lon = (180. + londiff)/15. 
+                else: # magnetic local time:
+                    lon = mag.mlon2mlt(lon, time)
+            else: # keep longitude - just divide by 15 to get unit hours
+                lon = lon / 15
+
+            if not north:
+                lat = -1 * lat
+            if not np.any(lat > self.minlat):
+                continue
+
+            iii = lat > self.minlat
+            lat[~iii] = np.nan
+            lon[~iii] = np.nan
+
+
+            x, y = self._latlt2xy(lat, lon)
+
+            segments.append(np.vstack((x, y)).T)
+
+        collection = LineCollection(segments, **kwargs)
+        self.ax.add_collection(collection)
+
 
 
     def _latlt2xy(self, lat, lt, ignore_plot_limits=False):
