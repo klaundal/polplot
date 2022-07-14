@@ -12,10 +12,8 @@ d2r = np.pi / 180
 
 datapath = os.path.dirname(os.path.abspath(__file__)) + '/data/'
 
-# rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 rc('font', **{'family': 'sans-serif', 'sans-serif': ['Verdana']})
 rc('text', usetex=True)
-
 
 class Polarplot(object):
     def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', **kwargs):
@@ -58,7 +56,6 @@ class Polarplot(object):
             Keywords passed to the plot function to control grid lines.
 
         """
-
         self.minlat = minlat # the lower latitude boundary of the plot
         self.ax = ax
         self.ax.axis('equal')
@@ -170,14 +167,14 @@ class Polarplot(object):
         for lat in np.r_[90: self.minlat -1e-12 :-10]:
             self.plot(np.full(100, lat), lts, **kwargs)
         
-        # add MLAT and MLT labels to axis
+        # add LAT and LT labels to axis
         if labels:
-            self.writeMLATlabels()
-            self.writeMLTlabels()
+            self.writeLATlabels()
+            self.writeLTlabels()
 
 
-    def writeMLTlabels(self, lat = None, degrees = False, **kwargs):
-        """ write MLT labels at given latitude (default minlat - 2)
+    def writeLTlabels(self, lat = None, degrees = False, **kwargs):
+        """ write local time labels at given latitude (default minlat - 2)
             if degrees is true, the longitude will be written instead of hour (with 0 at midnight)
         """
         if lat is None:
@@ -209,9 +206,9 @@ class Polarplot(object):
             return labels
 
     
-    # added by AØH 20/06/2022 to plot magnetic latitude labels
-    def writeMLATlabels(self, lt = None, **kwargs):
-        """ write magnetic latitude labels """
+    # added by AØH 20/06/2022 to plot latitude labels
+    def writeLATlabels(self, lt = None, **kwargs):
+        """ write latitude labels """
         if lt == None:
             lt = 3
         if kwargs is not None:
@@ -394,7 +391,7 @@ class Polarplot(object):
 
 
     def fill(self, lat, lt, **kwargs):
-        """ Fill polygon defined in lat/lt, **kwargs are given to self.ax.contour. MLT in hours - no rotation
+        """ Fill polygon defined in lat/lt, **kwargs are given to self.ax.contour. LT in hours - no rotation
         """
 
         xx, yy = self._latlt2xy(lat.flatten(), lt.flatten())
@@ -403,7 +400,7 @@ class Polarplot(object):
         return self.ax.fill(xx, yy, **kwargs)
 
 
-    def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None, **kwargs):
+    def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None, shade_kwargs={}, **kwargs):
         """ shade the area antisunward of the terminator
     
             Parameters
@@ -426,8 +423,11 @@ class Polarplot(object):
                 color of a shade to be drawn on the night side of the 
                 terminator. Default is None, which means that no shade will be
                 drawn
+            shade_kwargs : dict
+                Used if shadecolor is not None. keywords passed to matplotlib.patches' 
+                Pylogon function
             kwargs : dict
-                keywords passed to matplotlib's plot function
+                keywords passed to matplotlib's plot function for the terminator line
         """
         hemisphere = 1 if north else -1
 
@@ -470,7 +470,7 @@ class Polarplot(object):
             t_lon = (np.arctan2(r[1], r[0])*180/np.pi) % 360
 
             londiff = (t_lon - sslon + 180) % 360 - 180 # signed difference in longitude
-            t_lt = (180. + londiff)/15. # convert to mlt with ssqlon at noon
+            t_lt = (180. + londiff)/15. # convert to lt with ssqlon at noon
            
             if apex is not None:
                 mlat, mlon = apex.geo2apex(t_lat, t_lon, apex.refh)
@@ -501,7 +501,7 @@ class Polarplot(object):
         xx, yy = np.cos(a), np.sin(a)
 
         if shadecolor is not None:
-             shade = Polygon(np.vstack((np.hstack((x[::hemisphere], xx)), np.hstack((y[::hemisphere], yy)))).T, closed = True, color = shadecolor, linewidth = 0)
+             shade = Polygon(np.vstack((np.hstack((x[::hemisphere], xx)), np.hstack((y[::hemisphere], yy)))).T, closed = True, color = shadecolor, linewidth = 0, **shade_kwargs)
              self.ax.add_patch(shade)
 
 
@@ -749,8 +749,7 @@ class Polarplot(object):
             iii = lat > self.minlat
             lat[~iii] = np.nan
             lon[~iii] = np.nan
-
-
+            
             x, y = self._latlt2xy(lat, lon)
 
             segments.append(np.vstack((x, y)).T)
@@ -771,7 +770,7 @@ class Polarplot(object):
             DESCRIPTION.
         ignore_plot_limits : boolean, optional
             When True the conversion will ignore the limits of the plot allowing plotting outside
-            the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
+            the limits of the subplot, for example this is used in writeLTlabels. The default is False.
 
         Raises
         ------
@@ -784,7 +783,8 @@ class Polarplot(object):
             DESCRIPTION.
 
         """
-
+        
+        np.seterr(invalid='ignore', divide='ignore')
         lt = np.array(lt).flatten() % 24
         lat = np.abs(np.array(lat).flatten())
 
@@ -815,7 +815,7 @@ class Polarplot(object):
             DESCRIPTION.
         ignore_plot_limits : boolean, optional
             When True the conversion will ignore the limits of the plot allowing plotting outside
-            the limits of the subplot, for example this is used in writeMLTlabels. The default is False.
+            the limits of the subplot, for example this is used in writeLTlabels. The default is False.
 
         Returns
         -------
@@ -840,7 +840,7 @@ class Polarplot(object):
 
 
     def _northEastToCartesian(self, north, east, lt):
-        a = (lt - 6)/12*np.pi # convert MLT to angle with x axis (pointing from pole towards dawn)
+        a = (lt - 6)/12*np.pi # convert LT to angle with x axis (pointing from pole towards dawn)
 
         x1 = np.array([-north*np.cos(a), -north*np.sin(a)]) # arrow direction towards origin (northward)
         x2 = np.array([-east*np.sin(a),  east*np.cos(a)])   # arrow direction eastward
