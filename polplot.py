@@ -486,13 +486,6 @@ class Polarplot(object):
 
             x, y = self._latlt2xy(t_lat, t_lt)
 
-            # find the points which are closest to minlat, and use these as edgepoints for the rest of the contour:
-            xmin = np.argmin(x)
-            xmax = np.argmax(x)
-            left_lt = t_lt[xmin]
-            right_lt = t_lt[xmax]
-            if right_lt < left_lt:
-                right_lt += 24
 
         self.ax.plot(x, y, **kwargs)
 
