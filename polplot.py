@@ -361,12 +361,15 @@ class Polarplot(object):
 
         keywords passed to this function is passed on to matplotlib's contour
         """
-        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten())
+        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = True)
+        mask, _  = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = False)
+        f = f.flatten()
+        f[~np.isfinite(mask)] = np.nan
 
         # convert to cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
         points = np.vstack( tuple((xea, yea)) ).T
-        gridf = griddata(points, f.flatten(), (xx, yy))
+        gridf = griddata(points, f, (xx, yy))
 
         # ... and plot
         return self.ax.contour(xx, yy, gridf, **kwargs)
@@ -379,12 +382,15 @@ class Polarplot(object):
         keywords passed to this function is passed on to matplotlib's contourf
         """
 
-        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten())
+        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = True)
+        mask, _  = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = False)
+        f = f.flatten()
+        f[~np.isfinite(mask)] = np.nan
 
         # convert to cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
         points = np.vstack( tuple((xea, yea)) ).T
-        gridf = griddata(points, f.flatten(), (xx, yy))
+        gridf = griddata(points, f, (xx, yy))
 
         # ... and plot
         return self.ax.contourf(xx, yy, gridf, **kwargs)
