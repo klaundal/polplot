@@ -249,16 +249,10 @@ class Polarplot(object):
 
             scale = 0.1/SCALE
 
-        segments = []
-        for i in range(len(lats)):
 
-            lt = lts[i]
-            lat = lats[i]
-
-            x, y = self._latlt2xy(lat, lt)
-            dx, dy = R.dot(self._northEastToCartesian(north[i], east[i], lt).reshape((2, 1))).flatten()
-
-            segments.append([(x, y), (x + dx*scale, y + dy*scale)])
+        x, y = self._latlt2xy(lats, lts)
+        dx, dy = R.dot(self._northEastToCartesian(north, east, lts))
+        segments = np.dstack((np.vstack((x, x + dx * scale)).T, np.vstack((y, y + dy * scale)).T))
 
 
         self.ax.add_collection(LineCollection(segments, colors = colors, **kwargs))
