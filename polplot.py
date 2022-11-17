@@ -606,7 +606,7 @@ class Polarplot(object):
         if 'cmap' in kwargs.keys():
             cmap = kwargs.pop('cmap')
         else:
-            cmap = plt.cm.viridis            
+            cmap = plt.cm.viridis
         data = np.ma.array(data, mask=np.isnan(data))
         coll = PolyCollection(verts, array=data.flatten()[iii], cmap = cmap, edgecolors='none', **kwargs)
         if crange is not None:
@@ -786,8 +786,8 @@ class Polarplot(object):
         """
 
         np.seterr(invalid='ignore', divide='ignore')
-        lt = np.array(lt).flatten() % 24
-        lat = np.abs(np.array(lat).flatten())
+        lt = np.array(lt) % 24
+        lat = np.abs(np.array(lat))
 
         if lt.size!= lat.size:
             raise ValueError('x and y must be the same size')
