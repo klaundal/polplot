@@ -40,7 +40,7 @@ class Polarplot(object):
             scatter(lat, lt, **kwargs)         - works like plt.scatter
             contour(lat, lt, f)                - works like plt.contour
             contourf(lat, lt, f)               - works like plt.contourf
-        
+
 
         Parameters
         ----------
@@ -102,7 +102,7 @@ class Polarplot(object):
 
 
     def plot(self, lat, lt, **kwargs):
-        """ 
+        """
         Wrapper for matplotlib's plot function. Accepts lat, lt instead of x and y
 
         keywords passed to this function is passed on to matplotlib's plot
@@ -110,10 +110,10 @@ class Polarplot(object):
 
         x, y = self._latlt2xy(lat, lt)
         return self.ax.plot(x, y, **kwargs)
-    
+
 
     def text(self, lat, lt, text, ignore_plot_limits=False, **kwargs):
-        """ 
+        """
         Wrapper for matplotlib's text function. Accepts lat, lt instead of x and y
 
         keywords passed to this function is passed on to matplotlib's text
@@ -126,7 +126,7 @@ class Polarplot(object):
         else:
             print('text outside plot limit - set "ignore_plot_limits = True" to override')
 
-    
+
     def write(self, lat, lt, text, ignore_plot_limits=False, **kwargs):
         """ Alias for text, a wapper for matplotlib's text function. Accepts lat, lt instead of x and y
 
@@ -137,7 +137,7 @@ class Polarplot(object):
 
 
     def scatter(self, lat, lt, **kwargs):
-        """ 
+        """
         Wrapper for matplotlib's scatter function. Accepts lat, lt instead of x and y
 
         keywords passed to this function is passed on to matplotlib's scatter
@@ -149,7 +149,7 @@ class Polarplot(object):
 
 
     def plotgrid(self, labels=False, **kwargs):
-        """ plot lt, lat-grid on self.ax 
+        """ plot lt, lat-grid on self.ax
 
         parameters
         ----------
@@ -166,7 +166,7 @@ class Polarplot(object):
         lts = np.linspace(0, 24, 100)
         for lat in np.r_[90: self.minlat -1e-12 :-10]:
             self.plot(np.full(100, lat), lts, **kwargs)
-        
+
         # add LAT and LT labels to axis
         if labels:
             self.writeLATlabels()
@@ -205,7 +205,7 @@ class Polarplot(object):
 
             return labels
 
-    
+
     # added by AØH 20/06/2022 to plot latitude labels
     def writeLATlabels(self, lt = None, **kwargs):
         """ write latitude labels """
@@ -217,7 +217,7 @@ class Polarplot(object):
         labels = []
         for lat in np.r_[self.minlat:81:10]:
             labels.append(self.write(lat, lt, str(lat)+'$^{\circ}$', ignore_plot_limits = False, **latkwargs))
-        
+
         return labels
 
 
@@ -350,7 +350,7 @@ class Polarplot(object):
 
 
     def contour(self, lat, lt, f, **kwargs):
-        """ 
+        """
         Wrapper for matplotlib's contour function. Accepts lat, lt instead of x and y
 
         keywords passed to this function is passed on to matplotlib's contour
@@ -370,7 +370,7 @@ class Polarplot(object):
 
 
     def contourf(self, lat, lt, f, **kwargs):
-        """ 
+        """
         Wrapper for matplotlib's contourf function. Accepts lat, lt instead of x and y
 
         keywords passed to this function is passed on to matplotlib's contourf
@@ -402,16 +402,16 @@ class Polarplot(object):
 
     def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None, shade_kwargs={}, **kwargs):
         """ shade the area antisunward of the terminator
-    
+
             Parameters
             ----------
             time : float or datetime
-                if datetime, time describes the time for which to calculate the 
-                subsolar point and associated sunlight terminator. If float, it 
-                desribes where to draw a horizontal terminator line - in 
+                if datetime, time describes the time for which to calculate the
+                subsolar point and associated sunlight terminator. If float, it
+                desribes where to draw a horizontal terminator line - in
                 degrees from the pole towards the night side (think of it
                 approximately as dipole tilt angle)
-            sza : float, optional 
+            sza : float, optional
                 the terminator is defined as contours of this solar zenith angle
                 default 90 degrees
             north : bool, optional
@@ -420,31 +420,31 @@ class Polarplot(object):
                 give an apexpy.Apex object to convert the terminator to magnetic
                 apex coordinates. By default it is plotted in geographic
             shadecolor : string, optional
-                color of a shade to be drawn on the night side of the 
+                color of a shade to be drawn on the night side of the
                 terminator. Default is None, which means that no shade will be
                 drawn
             shade_kwargs : dict
-                Used if shadecolor is not None. keywords passed to matplotlib.patches' 
+                Used if shadecolor is not None. keywords passed to matplotlib.patches'
                 Pylogon function
             kwargs : dict
                 keywords passed to matplotlib's plot function for the terminator line
         """
         hemisphere = 1 if north else -1
 
-        if np.isscalar(time): # time is interpreted as dipole tilt angle 
+        if np.isscalar(time): # time is interpreted as dipole tilt angle
             y0 = -(hemisphere * time + sza - 90) / (90. - self.minlat) # noon-midnight coordinate
             xr = np.sqrt(1 - y0**2)
-   
+
             x = np.array([-xr, xr]).flatten()
             y = np.array([y0, y0]).flatten()
-    
+
         else: # time should be a datetime object
-                         
+
             sslat, sslon = subsol(time)
 
             # make cartesian vector
             x = np.cos(sslat * d2r) * np.cos(sslon * d2r)
-            y = np.cos(sslat * d2r) * np.sin(sslon * d2r) 
+            y = np.cos(sslat * d2r) * np.sin(sslon * d2r)
             z = np.sin(sslat * d2r)
             ss = np.array([x, y, z]).flatten()
 
@@ -471,7 +471,7 @@ class Polarplot(object):
 
             londiff = (t_lon - sslon + 180) % 360 - 180 # signed difference in longitude
             t_lt = (180. + londiff)/15. # convert to lt with ssqlon at noon
-           
+
             if apex is not None:
                 mlat, mlon = apex.geo2apex(t_lat, t_lon, apex.refh)
                 mlt = apex.mlon2mlt(mlon, time)
@@ -607,6 +607,7 @@ class Polarplot(object):
             cmap = kwargs.pop('cmap')
         else:
             cmap = plt.cm.viridis
+        data = np.ma.array(data, mask=np.isnan(data))
         coll = PolyCollection(verts, array=data.flatten()[iii], cmap = cmap, edgecolors='none', **kwargs)
         if crange is not None:
             coll.set_clim(crange[0], crange[1])
@@ -692,30 +693,30 @@ class Polarplot(object):
             cbax.set_xticklabels(['', ''])
 
         return coll
-    
-        
+
+
     def coastlines(self, time = None, mag = None, north = True, resolution = '50m', **kwargs):
-        """ plot coastlines 
+        """ plot coastlines
 
         Coastline data are read from numpy savez files. These files are made
         with the download_coastlines.py script in the helper_scripts folder,
-        which uses the cartopy module. 
+        which uses the cartopy module.
 
         Parameters
         ----------
         time: datetime, optional
-            give a datetime to replace longitude with local time when 
+            give a datetime to replace longitude with local time when
             plotting coastlines
         mag: apexpy.Apex, optional
             give an apexpy.Apex object to convert coastlines to magnetic
-            apex coordinates. If None (default), coastlines will be 
+            apex coordinates. If None (default), coastlines will be
             plotted in geographic coordinates
         north: bool, optional
             set to False if you want coastlines plotted for the southern
             hemisphere. Default is True
         resolution: string, optional
             Set to '50m' or '110m' to adjust the resolution of the coastlines.
-            These options correspond to options given to cartopy. Default is 
+            These options correspond to options given to cartopy. Default is
             '50m', which is the highest resolution.
         **kwargs: dict, optional
             keywords passed to matplotlib's plot function
@@ -730,12 +731,12 @@ class Polarplot(object):
             # convert lat and lon to magnetic if mag is given:
             if mag is not None:
                 lat, lon = mag.geo2apex(lat, lon, mag.refh)
-            
+
             if time is not None: # calculate local time if time is given
                 if mag is None: # calculate geographic local time
                     sslat, sslon = subsol(time)
                     londiff = (lon - sslon + 180) % 360 - 180
-                    lon = (180. + londiff)/15. 
+                    lon = (180. + londiff)/15.
                 else: # magnetic local time:
                     lon = mag.mlon2mlt(lon, time)
             else: # keep longitude - just divide by 15 to get unit hours
@@ -749,7 +750,7 @@ class Polarplot(object):
             iii = lat > self.minlat
             lat[~iii] = np.nan
             lon[~iii] = np.nan
-            
+
             x, y = self._latlt2xy(lat, lon)
 
             segments.append(np.vstack((x, y)).T)
@@ -783,10 +784,10 @@ class Polarplot(object):
             DESCRIPTION.
 
         """
-        
+
         np.seterr(invalid='ignore', divide='ignore')
-        lt = np.array(lt).flatten() % 24
-        lat = np.abs(np.array(lat).flatten())
+        lt = np.array(lt) % 24
+        lat = np.abs(np.array(lat))
 
         if lt.size!= lat.size:
             raise ValueError('x and y must be the same size')
@@ -859,7 +860,7 @@ class Polarplot(object):
             string_magnetic= 'lt={:.2f}, lat={:.2f}'.format(*ax_coord)
             return (string_original.ljust(20)+string_magnetic)
         return format_coord
- 
+
 
 
 
@@ -885,7 +886,7 @@ def date_to_doy(month, day, leapyear = False):
         if not (leapyear & (month == 2) & (day == 29)):
             raise ValueError('date2doy: day must not exceed number of days in month')
 
-    cumdaysmonth = np.cumsum(days_in_month[:-1]) 
+    cumdaysmonth = np.cumsum(days_in_month[:-1])
 
     # day of year minus possibly leap day:
     doy = cumdaysmonth[month - 1] + day
@@ -912,7 +913,7 @@ def is_leapyear(year):
 
 
 def subsol(time):
-    """ 
+    """
     calculate subsolar point at given datetime(s)
 
     returns:
@@ -925,9 +926,9 @@ def subsol(time):
     Find subsolar geographic latitude and longitude from date and time.
     Based on formulas in Astronomical Almanac for the year 1996, p. C24.
     (U.S. Government Printing Office, 1994).
-    Usable for years 1601-2100, inclusive.  According to the Almanac, 
-    results are good to at least 0.01 degree latitude and 0.025 degree 
-    longitude between years 1950 and 2050.  Accuracy for other years 
+    Usable for years 1601-2100, inclusive.  According to the Almanac,
+    results are good to at least 0.01 degree latitude and 0.025 degree
+    longitude between years 1950 and 2050.  Accuracy for other years
     has not been tested.  Every day is assumed to have exactly
     86400 seconds; thus leap seconds that sometimes occur on December
     31 are ignored:  their effect is below the accuracy threshold of
@@ -939,8 +940,8 @@ def subsol(time):
     # day of year:
     doy  = date_to_doy(time.month, time.day, is_leapyear(year))
     # seconds since start of day:
-    ut   = time.hour * 60.**2 + time.minute*60. + time.second 
- 
+    ut   = time.hour * 60.**2 + time.minute*60. + time.second
+
     yr = year - 2000
 
     if year >= 2100 or year <= 1600:
