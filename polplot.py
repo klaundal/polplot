@@ -16,7 +16,7 @@ rc('font', **{'family': 'sans-serif', 'sans-serif': ['Verdana']})
 rc('text', usetex=True)
 
 class Polarplot(object):
-    def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', **kwargs):
+    def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', lt_label='lt', lat_label='lat', **kwargs):
         """ pax = Polarsubplot(axis, minlat = 50, plotgrid = True, **kwargs)
 
             **kwargs are the plot parameters for the grid
@@ -52,6 +52,10 @@ class Polarplot(object):
         sector : string, optional
             Used to generate portions of polar plot.
             Can either use one of the following strings: 'all', 'dusk', 'dawn', 'night', 'day'. Or can be defined using numbers for example '18-6' will produce the same as night while '6-18' will produce the same as day. The default is 'all'.
+        lt_label : string, optional
+            Name of the local time co-ordinate used for displaying the hover co-ordinates. The default is 'lt'.
+        lat_label : string, optional
+            Name of the latitude co-ordinate used for displaying the hover co-ordinates. The defualt is 'lat'.
         **kwargs : dict
             Keywords passed to the plot function to control grid lines.
 
@@ -90,7 +94,7 @@ class Polarplot(object):
 
         self.ax.set_axis_off()
 
-        self.ax.format_coord= self.make_format()
+        self.ax.format_coord= self.make_format(lt_label, lat_label)
         if plotgrid:
             self.plotgrid(**kwargs)
 
