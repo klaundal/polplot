@@ -849,15 +849,16 @@ class Polarplot(object):
         return x1 + x2
 
 
-    def make_format(current):
+    def make_format(current, lt_label='lt', lat_label='lat'):
     # current and other are axes
         def format_coord(x, y):
             # x, y are data coordinates
             # convert to display coords
             display_coord = current._xy2latlt(x, y)[::-1]
-            ax_coord= (float(i) for i in display_coord)
             string_original= 'x={:.2f}, y={:.2f}'.format(x, y)
-            string_magnetic= 'lt={:.2f}, lat={:.2f}'.format(*ax_coord)
+            string_magnetic= f'{lt_label}={float(display_coord[0]):.2f}, {lat_label}={float(display_coord[1]):.2f}'
+            
+            
             return (string_original.ljust(20)+string_magnetic)
         return format_coord
 
