@@ -16,7 +16,7 @@ rc('font', **{'family': 'sans-serif', 'sans-serif': ['Verdana']})
 rc('text', usetex=True)
 
 class Polarplot(object):
-    def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', **kwargs):
+    def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', lt_label='lt', lat_label='lat', **kwargs):
         """ pax = Polarsubplot(axis, minlat = 50, plotgrid = True, **kwargs)
 
             **kwargs are the plot parameters for the grid
@@ -52,6 +52,10 @@ class Polarplot(object):
         sector : string, optional
             Used to generate portions of polar plot.
             Can either use one of the following strings: 'all', 'dusk', 'dawn', 'night', 'day'. Or can be defined using numbers for example '18-6' will produce the same as night while '6-18' will produce the same as day. The default is 'all'.
+        lt_label : string, optional
+            Name of the local time co-ordinate used for displaying the hover co-ordinates. The default is 'lt'.
+        lat_label : string, optional
+            Name of the latitude co-ordinate used for displaying the hover co-ordinates. The defualt is 'lat'.
         **kwargs : dict
             Keywords passed to the plot function to control grid lines.
 
@@ -90,7 +94,7 @@ class Polarplot(object):
 
         self.ax.set_axis_off()
 
-        self.ax.format_coord= self.make_format()
+        self.ax.format_coord= self.make_format(lt_label, lat_label)
         if plotgrid:
             self.plotgrid(**kwargs)
 
@@ -849,15 +853,16 @@ class Polarplot(object):
         return x1 + x2
 
 
-    def make_format(current):
+    def make_format(current, lt_label='lt', lat_label='lat'):
     # current and other are axes
         def format_coord(x, y):
             # x, y are data coordinates
             # convert to display coords
             display_coord = current._xy2latlt(x, y)[::-1]
-            ax_coord= (float(i) for i in display_coord)
             string_original= 'x={:.2f}, y={:.2f}'.format(x, y)
-            string_magnetic= 'lt={:.2f}, lat={:.2f}'.format(*ax_coord)
+            string_magnetic= f'{lt_label}={float(display_coord[0]):.2f}, {lat_label}={float(display_coord[1]):.2f}'
+            
+            
             return (string_original.ljust(20)+string_magnetic)
         return format_coord
 
