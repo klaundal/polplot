@@ -522,7 +522,9 @@ class Polarplot(object):
             print("WARNING: Input arrays to filled_cells of unequal length! Your plot is probably incorrect")
 
         lat, lt, latres, ltres, data = map(np.ravel, [lat, lt, latres, ltres, data])
-
+        mask = np.ones_like(data)
+        mask[(~eval(self.ltlims)) | (lat < self.minlat)] = np.nan
+        data*=mask
         if verbose:
             print(lt.shape, lat.shape, latres.shape, ltres.shape)
 
