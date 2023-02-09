@@ -137,7 +137,7 @@ class Polarplot(object):
         keywords passed to this function is passed on to matplotlib's text
         """
 
-        self.text(lat, lt, text, ignore_plot_limits, **kwargs)
+        return self.text(lat, lt, text, ignore_plot_limits, **kwargs)
 
 
     def scatter(self, lat, lt, **kwargs):
@@ -163,19 +163,19 @@ class Polarplot(object):
             passed to matplotlib's plot function (for linestyle etc.)
 
         """
-
+        returns= []
         for lt in [0, 6, 12, 18]:
-            self.plot([self.minlat, 90], [lt, lt], **kwargs)
+            returns.append(self.plot([self.minlat, 90], [lt, lt], **kwargs))
 
         lts = np.linspace(0, 24, 100)
         for lat in np.r_[90: self.minlat -1e-12 :-10]:
-            self.plot(np.full(100, lat), lts, **kwargs)
+            returns.append(self.plot(np.full(100, lat), lts, **kwargs))
 
         # add LAT and LT labels to axis
         if labels:
-            self.writeLATlabels()
-            self.writeLTlabels()
-
+            returns.append(self.writeLATlabels())
+            returns.append(self.writeLTlabels())
+        return tuple(returns)
 
     def writeLTlabels(self, lat = None, degrees = False, **kwargs):
         """ write local time labels at given latitude (default minlat - 2)
@@ -236,20 +236,20 @@ class Polarplot(object):
             markercolor (default black)
 
         """
-
+        returns= []
         lts = lts.flatten()
         lats = lats.flatten()
         north = north.flatten()
         east = east.flatten()
         R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
-
+        
         if SCALE is None:
             scale = 1.
         else:
 
             if unit is not None:
-                self.ax.plot([0.9, 1], [0.95, 0.95], color = colors, linestyle = '-', linewidth = 2)
-                self.ax.text(0.9, 0.95, ('%.1f ' + unit) % SCALE, horizontalalignment = 'right', verticalalignment = 'center', size = size)
+                returns.append(self.ax.plot([0.9, 1], [0.95, 0.95], color = colors, linestyle = '-', linewidth = 2))
+                returns.append(self.ax.text(0.9, 0.95, ('%.1f ' + unit) % SCALE, horizontalalignment = 'right', verticalalignment = 'center', size = size))
 
             scale = 0.1/SCALE
 
@@ -259,11 +259,11 @@ class Polarplot(object):
         segments = np.dstack((np.vstack((x, x + dx * scale)).T, np.vstack((y, y + dy * scale)).T))
 
 
-        self.ax.add_collection(LineCollection(segments, colors = colors, **kwargs))
+        returns.append(self.ax.add_collection(LineCollection(segments, colors = colors, **kwargs)))
 
         if markersize != 0:
-            self.scatter(lats, lts, marker = marker, c = markercolor, s = markersize, edgecolors = markercolor)
-
+            returns.append(self.scatter(lats, lts, marker = marker, c = markercolor, s = markersize, edgecolors = markercolor))
+        return tuple(returns)
 
     def quiver(self, lat, lt, north, east, rotation = 0, qkeyproperties = None, **kwargs):
         """ wrapper for matplotlib's quiver function, just for lat/lt coordinates and
@@ -433,6 +433,7 @@ class Polarplot(object):
             kwargs : dict
                 keywords passed to matplotlib's plot function for the terminator line
         """
+        returns= []
         hemisphere = 1 if north else -1
 
         if np.isscalar(time): # time is interpreted as dipole tilt angle
@@ -491,7 +492,7 @@ class Polarplot(object):
             x, y = self._latlt2xy(t_lat, t_lt)
 
 
-        self.ax.plot(x, y, **kwargs)
+        returns.append(self.ax.plot(x, y, **kwargs))
 
         x0, x1 = np.min([x[0], x[-1]]), np.max([x[0], x[-1]])
         y0, y1 = np.min([y[0], y[-1]]), np.max([y[0], y[-1]])
@@ -506,7 +507,8 @@ class Polarplot(object):
 
         if shadecolor is not None:
              shade = Polygon(np.vstack((np.hstack((x[::hemisphere], xx)), np.hstack((y[::hemisphere], yy)))).T, closed = True, color = shadecolor, linewidth = 0, **shade_kwargs)
-             self.ax.add_patch(shade)
+             returns.append(self.ax.add_patch(shade))
+        return tuple(returns)
 
 
 
@@ -520,7 +522,9 @@ class Polarplot(object):
             print("WARNING: Input arrays to filled_cells of unequal length! Your plot is probably incorrect")
 
         lat, lt, latres, ltres, data = map(np.ravel, [lat, lt, latres, ltres, data])
-
+        mask = np.ones_like(data)
+        mask[(~eval(self.ltlims)) | (lat < self.minlat)] = np.nan
+        data*=mask
         if verbose:
             print(lt.shape, lat.shape, latres.shape, ltres.shape)
 
@@ -565,7 +569,7 @@ class Polarplot(object):
             self.ax.add_artist(bg)
 
 
-        self.ax.add_collection(coll)
+        return self.ax.add_collection(coll)
 
 
     def plotimg(self,lat,lt,image,corr=True , crange = None, bgcolor = None, **kwargs):
@@ -760,7 +764,7 @@ class Polarplot(object):
             segments.append(np.vstack((x, y)).T)
 
         collection = LineCollection(segments, **kwargs)
-        self.ax.add_collection(collection)
+        return self.ax.add_collection(collection)
 
 
 
