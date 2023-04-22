@@ -62,5 +62,8 @@ identifiers:
       Paper in Frontiers of Astronomy and Space Sciences:
       "The Lompe code: A Python toolbox for ionospheric data
       analysis"
+  - type: doi
+    value: 10.5281/zenodo.7855202
+    description: Zenodo
 abstract: Python package for plotting in polar coordinates
 license: MIT
