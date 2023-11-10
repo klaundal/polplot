@@ -96,7 +96,7 @@ class Polarplot(object):
 
         self.ax.format_coord= self.make_format(lt_label, lat_label)
         if plotgrid:
-            self.plotgrid(**kwargs)
+            self.grid_lines= self.plotgrid(**kwargs)
 
         # set suitable plot limits by drawing a circle at minlat:
         x, y = self._latlt2xy(np.full(100, self.minlat), np.linspace(0, 24, 100))
@@ -104,7 +104,8 @@ class Polarplot(object):
         self.ax.set_xlim(np.nanmin(x) - 0.1, np.nanmax(x) + 0.1)
         self.ax.set_ylim(np.nanmin(y) - 0.1, np.nanmax(y) + 0.1)
 
-
+        self.lat_labels=False
+        self.lt_labels= False
     def plot(self, lat, lt, **kwargs):
         """
         Wrapper for matplotlib's plot function. Accepts lat, lt instead of x and y
@@ -206,12 +207,15 @@ class Polarplot(object):
             lt=18
             if eval(self.ltlims):
                 labels.append(self.write(lat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
-
-            return labels
+        if self.lt_labels:
+            for label in self.lt_labels:
+                label.remove()
+        self.lt_labels= labels
+        return labels
 
 
     # added by AØH 20/06/2022 to plot latitude labels
-    def writeLATlabels(self, lt = None, **kwargs):
+    def writeLATlabels(self, lt = None, lats=None, **kwargs):
         """ write latitude labels """
         if lt == None:
             lt = 3
@@ -219,9 +223,14 @@ class Polarplot(object):
             latkwargs = {'rotation':45, 'color':'lightgrey', 'backgroundcolor':'white', 'zorder':2, 'alpha':1.}
             latkwargs.update(kwargs)
         labels = []
-        for lat in np.r_[self.minlat:81:10]:
+        if not lats:
+            lats=np.r_[80:self.minlat-1e-12:-10][::-1].astype('int64')
+        for lat in lats:
             labels.append(self.write(lat, lt, str(lat)+'$^{\circ}$', ignore_plot_limits = False, **latkwargs))
-
+        if self.lat_labels:
+            for label in self.lat_labels:
+                label.remove()
+        self.lat_labels= labels
         return labels
 
 
