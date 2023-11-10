@@ -174,8 +174,20 @@ class Polarplot(object):
 
         # add LAT and LT labels to axis
         if labels:
-            returns.append(self.writeLATlabels())
-            returns.append(self.writeLTlabels())
+            if self.lt_labels:
+                try:
+                    for label in self.lt_labels:
+                        label.remove()
+                except:
+                    pass
+            if self.lat_labels:
+                try:
+                    for label in self.lat_labels:
+                        label.remove()
+                except:
+                    pass
+            self.lt_labels= self.writeLATlabels()
+            self.lat_labels=self.writeLTlabels()
         return tuple(returns)
 
     def writeLTlabels(self, lat = None, degrees = False, **kwargs):
@@ -208,8 +220,11 @@ class Polarplot(object):
             if eval(self.ltlims):
                 labels.append(self.write(lat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
         if self.lt_labels:
-            for label in self.lt_labels:
-                label.remove()
+            try:
+                for label in self.lt_labels:
+                    label.remove()
+            except:
+                pass
         self.lt_labels= labels
         return labels
 
@@ -228,8 +243,11 @@ class Polarplot(object):
         for lat in lats:
             labels.append(self.write(lat, lt, str(lat)+'$^{\circ}$', ignore_plot_limits = False, **latkwargs))
         if self.lat_labels:
-            for label in self.lat_labels:
-                label.remove()
+            try:
+                for label in self.lat_labels:
+                    label.remove()
+            except:
+                pass
         self.lat_labels= labels
         return labels
 
