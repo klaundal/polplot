@@ -494,6 +494,9 @@ class Polarplot(object):
 
         returns.append(self.ax.plot(x, y, **kwargs))
 
+        if len(x) == 0: #terinator is not in the plot
+            return None 
+
         x0, x1 = np.min([x[0], x[-1]]), np.max([x[0], x[-1]])
         y0, y1 = np.min([y[0], y[-1]]), np.max([y[0], y[-1]])
 
