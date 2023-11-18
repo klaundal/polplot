@@ -1,9 +1,44 @@
+"""
+Polplot Module
+==============
+
+This module provides the Polarplot class for creating and managing plots in a polar latitude-local 
+time coordinate system. It is designed to facilitate the visualization of geophysical or astronomical 
+data where such a coordinate system is more meaningful than traditional Cartesian coordinates.
+
+The Polarplot class in this module offers a range of methods that mirror those in Matplotlib but 
+are adapted for plotting in polar coordinates. These methods include plotting data points, lines, 
+text, and complex figures like contours and scatter plots. The class handles the transformation 
+from geographic or magnetic coordinates to the polar latitude-local time system, making it a 
+useful tool for researchers and scientists working in fields like space physics or meteorology.
+
+Key Features:
+- Conversion between latitude/local time and Cartesian coordinates.
+- Plotting methods adapted for polar latitude-local time coordinates.
+- Customizable plotting and visualization options.
+- Integration with standard Matplotlib AxesSubplot for ease of use.
+
+Example Usage:
+    import matplotlib.pyplot as plt
+    import polplot
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    pax = polplot.Polarplot(ax, minlat=50)
+    pax.plot(data_lat, data_lt, **kwargs)
+    plt.show()
+
+The module is designed to be intuitive for those familiar with Matplotlib, 
+providing a straightforward transition to polar latitude-local time plotting.
+
+"""
 from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import warnings
 from scipy.interpolate import griddata
+from datetime import datetime
 from matplotlib import rc
 from matplotlib.patches import Polygon, Ellipse
 from matplotlib.collections import PolyCollection, LineCollection
@@ -17,49 +52,49 @@ rc('text', usetex=True)
 
 class Polarplot(object):
     def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', lt_label='lt', lat_label='lat', **kwargs):
-        """ pax = Polarsubplot(axis, minlat = 50, plotgrid = True, **kwargs)
+        """
+        Initialize a Polarplot object for plotting data in polar latitude-local time coordinates.
 
-            **kwargs are the plot parameters for the grid
-
-            this is a class which handles plotting in polar coordinates, specifically a latitude-local time grid
-
-            Example:
-            --------
-            import matplotlib.pyplot as plt
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            pax = Polarsubplot(ax)
-            pax.MEMBERFUNCTION()
-            plt.show()
-
-
-            where memberfunctions include:
-            plotgrid()                           - called by __init__
-            plot(lat, lt, **kwargs)            - works like plt.plot
-            text(lat, lt, text, **kwargs)      - works like plt.text
-            scatter(lat, lt, **kwargs)         - works like plt.scatter
-            contour(lat, lt, f)                - works like plt.contour
-            contourf(lat, lt, f)               - works like plt.contourf
-
+        This class facilitates plotting in a polar coordinate system, where the radial dimension
+        represents latitude and the angular dimension represents local time. It offers various
+        functions for plotting data, adding text, and more, in this coordinate system.
 
         Parameters
         ----------
-        ax : matplotlib AxesSubplot object
-        minlat : scalar, optional
-            low latitude boundary of the plot. The default is 50.
+        ax : matplotlib.axes.Axes
+            The Matplotlib AxesSubplot object where the plot will be drawn.
+        minlat : float, optional
+            The minimum latitude boundary of the plot. This value sets the innermost circle of the
+            polar plot. The default is 50 degrees.
         plotgrid : bool, optional
-            Set True to plot a grid. The default is True.
-        sector : string, optional
-            Used to generate portions of polar plot.
-            Can either use one of the following strings: 'all', 'dusk', 'dawn', 'night', 'day'. Or can be defined using numbers for example '18-6' will produce the same as night while '6-18' will produce the same as day. The default is 'all'.
-        lt_label : string, optional
-            Name of the local time co-ordinate used for displaying the hover co-ordinates. The default is 'lt'.
-        lat_label : string, optional
-            Name of the latitude co-ordinate used for displaying the hover co-ordinates. The defualt is 'lat'.
+            If True, a grid is plotted on initialization. The grid consists of circles at constant
+            latitudes and lines at constant local times. The default is True.
+        sector : str, optional
+            Specifies the sector to be plotted. Can be 'all' for a full polar plot or other
+            values to represent specific sectors. The default is 'all'.
+        lt_label : str, optional
+            The label used for local time coordinates. Default is 'lt'.
+        lat_label : str, optional
+            The label used for latitude coordinates. Default is 'lat'.
         **kwargs : dict
-            Keywords passed to the plot function to control grid lines.
+            Additional keyword arguments that are passed to the plotting functions for the grid.
+            These can include parameters like color, linestyle, etc.
 
+        Example
+        -------
+        >>> import matplotlib.pyplot as plt
+        >>> import polplot
+        >>> fig = plt.figure()
+        >>> ax = fig.add_subplot(111)
+        >>> pax = polplot.Polarplot(ax)
+        >>> pax.plot(lat, lt, **kwargs)
+        >>> plt.show()
+
+        The class provides various member functions including plot(), text(), scatter(),
+        contour(), and contourf(), which are analogous to their Matplotlib counterparts but
+        are adapted for the polar latitude-local time coordinate system.
         """
+
         self.minlat = minlat # the lower latitude boundary of the plot
         self.ax = ax
         self.ax.axis('equal')
@@ -94,7 +129,7 @@ class Polarplot(object):
 
         self.ax.set_axis_off()
 
-        self.ax.format_coord= self.make_format(lt_label, lat_label)
+        self.ax.format_coord= self._create_coordinate_formatter(lt_label, lat_label)
         if plotgrid:
             self.plotgrid(**kwargs)
 
@@ -109,18 +144,42 @@ class Polarplot(object):
         """
         Wrapper for matplotlib's plot function. Accepts lat, lt instead of x and y
 
-        keywords passed to this function is passed on to matplotlib's plot
+        Keywords passed to this function are passed on to matplotlib's plot. 
+
+        The return parameter is the return parameter from matplotlib's plot.
+
+
+        Parameters
+        ----------
+        lat: array-like
+            array of latitudes [degrees]
+        lt: array-like
+            array of local times [hours]
+
         """
 
         x, y = self._latlt2xy(lat, lt)
         return self.ax.plot(x, y, **kwargs)
 
 
-    def text(self, lat, lt, text, ignore_plot_limits=False, **kwargs):
+    def text(self, lat, lt, text, ignore_plot_limits = False, **kwargs):
         """
         Wrapper for matplotlib's text function. Accepts lat, lt instead of x and y
 
-        keywords passed to this function is passed on to matplotlib's text
+        keywords passed to this function is passed on to matplotlib's text.
+
+        The return parameter is the return parameter from matplotlib's text.
+
+        Parameters
+        ----------
+        lat: float
+            latitude of text [degrees]
+        lt: float
+            local time of text [hours]
+        text: string
+            the text to be shown
+        ignore_plot_limits: bool, optional
+            set to True to allow plotting outside plot limits. Default is False
         """
 
         x, y = self._latlt2xy(lat, lt, ignore_plot_limits=ignore_plot_limits)
@@ -131,10 +190,24 @@ class Polarplot(object):
             print('text outside plot limit - set "ignore_plot_limits = True" to override')
 
 
-    def write(self, lat, lt, text, ignore_plot_limits=False, **kwargs):
-        """ Alias for text, a wapper for matplotlib's text function. Accepts lat, lt instead of x and y
+    def write(self, lat, lt, text, ignore_plot_limits = False, **kwargs):
+        """
+        Wrapper for matplotlib's text function. Accepts lat, lt instead of x and y
 
-        keywords passed to this function is passed on to matplotlib's text
+        keywords passed to this function is passed on to matplotlib's text.
+
+        The return parameter is the return parameter from matplotlib's text.
+
+        Parameters
+        ----------
+        lat: float
+            latitude of text [degrees]
+        lt: float
+            local time of text [hours]
+        text: string
+            the text to be shown
+        ignore_plot_limits: bool, optional
+            set to True to allow plotting outside plot limits. Default is False
         """
 
         return self.text(lat, lt, text, ignore_plot_limits, **kwargs)
@@ -144,18 +217,29 @@ class Polarplot(object):
         """
         Wrapper for matplotlib's scatter function. Accepts lat, lt instead of x and y
 
-        keywords passed to this function is passed on to matplotlib's scatter
+        Keywords passed to this function are passed on to matplotlib's scatter. 
+
+        The return parameter is the return parameter from matplotlib's scatter.
+
+
+        Parameters
+        ----------
+        lat: array-like
+            array of latitudes [degrees]
+        lt: array-like
+            array of local times [hours]
+
         """
 
         x, y = self._latlt2xy(lat, lt)
-        c = self.ax.scatter(x, y, **kwargs)
-        return c
+        return self.ax.scatter(x, y, **kwargs)
 
 
-    def plotgrid(self, labels=False, **kwargs):
-        """ plot lt, lat-grid on self.ax
+    def plotgrid(self, labels = False, **kwargs):
+        """ 
+        Plot local time/latitude grid
 
-        parameters
+        Parameters
         ----------
         labels: bool
             set to True to include lat/lt labels
@@ -178,635 +262,865 @@ class Polarplot(object):
         return tuple(returns)
 
     def writeLTlabels(self, lat = None, degrees = False, **kwargs):
-        """ write local time labels at given latitude (default minlat - 2)
-            if degrees is true, the longitude will be written instead of hour (with 0 at midnight)
+        """ 
+        Write local time labels at given latitude (default minlat - 2)
+        
+        If degrees is True, longitude will be used instead of hour
         """
+        
         if lat is None:
             lat = self.minlat - 2
+        
         labels=[]
+        
         if degrees:
             if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                labels.append(self.write(lat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dawn', 'day']:
-                labels.append(self.write(lat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                labels.append(self.write(lat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dusk', 'day']:
-                labels.append(self.write(lat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
         else:
             lt=np.array([0, 24])
             if any(eval(self.ltlims)):
-                labels.append(self.write(lat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             lt=6
             if eval(self.ltlims):
-                labels.append(self.write(lat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             lt=12
             if eval(self.ltlims):
-                labels.append(self.write(lat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             lt=18
             if eval(self.ltlims):
-                labels.append(self.write(lat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+                labels.append(self.text(lat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
 
             return labels
 
 
-    # added by AØH 20/06/2022 to plot latitude labels
-    def writeLATlabels(self, lt = None, **kwargs):
-        """ write latitude labels """
-        if lt == None:
-            lt = 3
-        if kwargs is not None:
-            latkwargs = {'rotation':45, 'color':'lightgrey', 'backgroundcolor':'white', 'zorder':2, 'alpha':1.}
-            latkwargs.update(kwargs)
+    def writeLATlabels(self, lt=3, rotation=45, color='lightgrey', backgroundcolor='white', zorder=2, **kwargs):
+        """
+        Write latitude labels at a specified meridian.
+
+        This function adds latitude labels to a plot, with customizable appearance. 
+        The labels are placed at specified longitude and latitudes at intervals of 10 degrees 
+        starting from `self.minlat` up to 80 degrees.
+
+        kwargs are passed to self.text
+
+        Parameters
+        ----------
+        lt : int, default 3
+            Longitude for placing the labels.
+        rotation : int, default 45
+            Text rotation angle.
+        color : str, default 'lightgrey'
+            Text color.
+        backgroundcolor : str, default 'white'
+            Background color of the text.
+        zorder : int, default 2
+            Z-order for layering on the plot.
+
+
+        Notes
+        -----
+        The function internally calls `self.text` method to generate each label. 
+        """
+
+        label_params = {'rotation': rotation, 'color': color, 'backgroundcolor': backgroundcolor, 'zorder': zorder}
+        label_params.update(kwargs)
+
         labels = []
+
         for lat in np.r_[self.minlat:81:10]:
-            labels.append(self.write(lat, lt, str(lat)+'$^{\circ}$', ignore_plot_limits = False, **latkwargs))
+            labels.append(self.text(lat, lt, f'{lat}°', ignore_plot_limits=False, **label_params))
 
         return labels
 
 
-    def plotpins(self, lats, lts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', colors = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
-        """ plot vector field. Each vector is a dot with a line pointing in the vector direction
+    def plotpins(self, lats, lts, poleward, eastward, rotation=0, SCALE=None, size=10, unit='', colors='black', markercolor='black', marker='o', markersize=20, **kwargs):
+        """
+        Plot a vector field with dots and lines representing vectors.
 
-            kwargs go to ax.plot
+        Each vector is depicted as a dot at its origin and a line indicating its direction and magnitude.
 
-            the markers at each pin can be modified by the following keywords, that go to ax.scatter:
-            marker (default 'o')
-            markersize (defult 20 - size in points^2)
-            markercolor (default black)
+        Parameters
+        ----------
+        lats : array_like
+            Array of latitudes [deg] for each vector. Must be positive
+        lts : array_like
+            Array of local times [h] for each vector.
+        poleward : array_like
+            Poleward component of each vector.
+        eastward : array_like
+            Eastward component of each vector.
+        rotation : float, optional
+            Rotation angle for vectors, in degrees. Default is 0.
+        SCALE : float or None, optional
+            Scale factor for vector magnitude. If None, a default scale of 1 is used.
+        size : int, optional
+            Font size for the unit text. Default is 10.
+        unit : str, optional
+            Unit label for the scale bar. Default is an empty string.
+        colors : str or array_like, optional
+            Color for the vector lines. Default is 'black'.
+        markercolor : str or array_like, optional
+            Color for the markers. Default is 'black'.
+        marker : str, optional
+            Marker style. Default is 'o' (circle).
+        markersize : int, optional
+            Size of the markers. Default is 20.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to `ax.plot` for line customization.
+
+        Returns
+        -------
+        tuple
+            A tuple of Matplotlib objects representing the plotted elements.
+
 
         """
-        returns= []
-        lts = lts.flatten()
-        lats = lats.flatten()
-        north = north.flatten()
-        east = east.flatten()
-        R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
-        
-        if SCALE is None:
-            scale = 1.
-        else:
 
-            if unit is not None:
-                returns.append(self.ax.plot([0.9, 1], [0.95, 0.95], color = colors, linestyle = '-', linewidth = 2))
-                returns.append(self.ax.text(0.9, 0.95, ('%.1f ' + unit) % SCALE, horizontalalignment = 'right', verticalalignment = 'center', size = size))
+        lts, lats, poleward, eastward = [np.asarray(a).flatten() for a in (lts, lats, poleward, eastward)]
+        R = np.array([[np.cos(np.deg2rad(rotation)), -np.sin(np.deg2rad(rotation))], 
+                      [np.sin(np.deg2rad(rotation)), np.cos(np.deg2rad(rotation))]])
 
-            scale = 0.1/SCALE
-
+        scale = 0.1 / SCALE if SCALE is not None else 1.
 
         x, y = self._latlt2xy(lats, lts)
-        dx, dy = R.dot(self._northEastToCartesian(north, east, lts))
-        segments = np.dstack((np.vstack((x, x + dx * scale)).T, np.vstack((y, y + dy * scale)).T))
+        dx, dy = R.dot(self._northEastToCartesian(poleward, eastward, lts)) * scale
+        segments = np.dstack((np.vstack((x, x + dx)).T, np.vstack((y, y + dy)).T))
 
+        returns = [self.ax.add_collection(LineCollection(segments, colors=colors, **kwargs))]
 
-        returns.append(self.ax.add_collection(LineCollection(segments, colors = colors, **kwargs)))
+        if unit and SCALE is not None:
+            returns.extend([
+                self.ax.plot([0.9, 1], [0.95, 0.95], color=colors, linestyle='-', linewidth=2),
+                self.ax.text(0.9, 0.95, f'{SCALE:.1f} {unit}', ha='right', va='center', fontsize=size)
+            ])
 
         if markersize != 0:
-            returns.append(self.scatter(lats, lts, marker = marker, c = markercolor, s = markersize, edgecolors = markercolor))
+            returns.append(self.scatter(lats, lts, marker=marker, c=markercolor, s=markersize, edgecolors=markercolor))
+
         return tuple(returns)
 
-    def quiver(self, lat, lt, north, east, rotation = 0, qkeyproperties = None, **kwargs):
-        """ wrapper for matplotlib's quiver function, just for lat/lt coordinates and
-            east/north components. Rotation specifies a rotation angle for the vectors,
-            which could be convenient if you want to rotate magnetic field measurements
-            to an equivalent current direction
 
-            rotation in radians
+    def quiver(self, lat, lt, poleward, eastward, rotation=0, qkeyproperties=None, **kwargs):
+        """
+        Wrapper for Matplotlib's quiver function for latitude/local time coordinates.
 
-            qkeyproperties: set to dict to pass to matplotlib quiverkey. The dict must contain
-            'label': the label written next to arrow
-            'U': length of the arrow key in same unit as north/east components
+        This function plots vectors defined by poleward and eastward components at specified
+        latitudes and longitudes. An optional rotation can be applied to the vectors.
 
+        Parameters
+        ----------
+        lat : array_like
+            Array of latitudes [deg] for each vector. Must be positive
+        lt : array_like
+            Array of local times [h] for each vector.
+        poleward : array_like
+            Poleward component of each vector.
+        eastward : array_like
+            Eastward component of each vector.
+        rotation : float, optional
+            Rotation angle for the vectors, in radians. Default is 0.
+        qkeyproperties : dict or None, optional
+            Properties for the quiver key. If set to a dictionary, it must contain 'label' and 'U'.
+            'label' is the label written next to the arrow, and 'U' is the length of the arrow key in
+            the same unit as the vector components.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to Matplotlib's quiver function.
+
+        Returns
+        -------
+        matplotlib.quiver.Quiver
+            The quiver plot object.
+
+        Notes
+        -----
+        The function is a convenience wrapper around Matplotlib's quiver function, tailored for
+        geographic coordinates and vector components. It allows easy plotting of vector fields
+        such as wind or ocean current data.
         """
 
-        lt = lt.flatten()
-        lat = lat.flatten()
-        north = north.flatten()
-        east = east.flatten()
-        R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
+        lt, lat, poleward, eastward = [np.asarray(a).flatten() for a in (lt, lat, poleward, eastward)]
+        R = np.array([[np.cos(rotation), -np.sin(rotation)], 
+                      [np.sin(rotation), np.cos(rotation)]])
 
         x, y = self._latlt2xy(lat, lt)
-        dx, dy = R.dot(self._northEastToCartesian(north, east, lt))
+        dx, dy = R.dot(self._northEastToCartesian(poleward, eastward, lt))
 
         q = self.ax.quiver(x, y, dx, dy, **kwargs)
 
         if qkeyproperties is not None:
-            qkeykwargs = {'X':.8, 'Y':.9, 'labelpos':'E'}
+            qkeykwargs = {'X': .8, 'Y': .9, 'labelpos': 'E'}
             qkeykwargs.update(qkeyproperties)
-
             self.ax.quiverkey(q, **qkeykwargs)
 
         return q
 
 
+    def plottrack(self, lats, lts, poleward, eastward, rotation=0, SCALE=None, size=10, unit='', color='black', markercolor='black', marker='o', markersize=20, **kwargs):
+        """
+        Plot a vector field where each vector is represented as a dot at the tip of the arrow.
 
-    def plottrack(self, lats, lts, north, east, rotation = 0, SCALE = None, size = 10, unit = '', color = 'black', markercolor = 'black', marker = 'o', markersize = 20, **kwargs):
-        """ like plotpins, only it's not a line pointing in the arrow direction but a dot at the tip of the arrow
+        Unlike `plotpins`, this function plots a dot at the location where the tip of the arrow would be,
+        rather than a line pointing in the direction of the vector.
 
-            kwargs go to ax.plot
+        Parameters
+        ----------
+        lats : array_like
+            Array of latitudes [deg] for each vector. Must be positive
+        lts : array_like
+            Array of local times [h] for each vector.
+        poleward : array_like
+            Poleward component of each vector.
+        eastward : array_like
+            Eastward component of each vector.
+        rotation : float, optional
+            Rotation angle for the vectors, in degrees. Default is 0.
+        SCALE : float or None, optional
+            Scale factor for vector magnitude. If None, a default scale of 1 is used.
+        size : int, optional
+            Font size for the unit text. Default is 10.
+        unit : str, optional
+            Unit label for the scale bar. Default is an empty string.
+        color : str, optional
+            Color for the vector lines. Default is 'black'.
+        markercolor : str, optional
+            Color for the markers. Default is 'black'.
+        marker : str, optional
+            Marker style. Default is 'o' (circle).
+        markersize : int, optional
+            Size of the markers. Default is 20.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to `ax.scatter` for marker customization.
 
-            the markers at each pin can be modified by the following keywords, that go to ax.scatter:
-            marker (default 'o')
-            markersize (defult 20 - size in points^2)
-            markercolor (default black)
+        Returns
+        -------
+        matplotlib.collections.PathCollection, list
+            The scatter plot object, and optionally, scale bar elements as a list.
 
+        Notes
+        -----
+        This function is similar to `plotpins` but differs in the representation of vectors.
+        It can be used for visualizing vector fields where the emphasis is on the end point of the vectors.
         """
 
-        lts = lts.flatten()
-        lats = lats.flatten()
-        north = north.flatten()
-        east = east.flatten()
-        R = np.array(([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]))
-        if 'key_coords' in kwargs:
-            key_x, key_y= kwargs['key_coords']
-            kwargs.pop('key_coords', None)
-        else:
-            key_x, key_y= 0.9, 0.95
-        key=[]
-        if SCALE is None:
-            scale = 1.
-        else:
+        lts, lats, poleward, eastward = [np.asarray(a).flatten() for a in (lts, lats, poleward, eastward)]
+        R = np.array([[np.cos(rotation), -np.sin(rotation)], 
+                      [np.sin(rotation), np.cos(rotation)]])
 
-            if unit is not None:
-                key.append(self.ax.plot([key_x, key_x+.1], [key_y]*2, color = color, linestyle = '-', linewidth = 2))
-                key.append(self.ax.text(key_x, key_y, ('%.1f ' + unit) % SCALE, horizontalalignment = 'right', verticalalignment = 'center', size = size))
+        key_x, key_y = kwargs.pop('key_coords', (0.9, 0.95))
+        key = []
 
-            scale = 0.1/SCALE
+        scale = 0.1 / SCALE if SCALE is not None else 1.
 
-        xs, ys, dxs, dys = [],[],[],[]
-        for i in range(len(lats)):
+        if SCALE is not None and unit:
+            key.append(self.ax.plot([key_x, key_x + 0.1], [key_y, key_y], color=color, linestyle='-', linewidth=2))
+            key.append(self.ax.text(key_x, key_y, f'{SCALE:.1f} {unit}', ha='right', va='center', fontsize=size))
 
-            lt = lts[i]
-            lat = lats[i]
+        x, y = self._latlt2xy(lats, lts)
+        dx, dy = (R.dot(self._northEastToCartesian(poleward, eastward, lts)) * scale).T
 
-            x, y = self._latlt2xy(lat, lt)
-            dx, dy = R.dot(self._northEastToCartesian(north[i], east[i], lt).reshape((2, 1))).flatten()
-            xs.append(x)
-            ys.append(y)
-            dxs.append(dx)
-            dys.append(dy)
+        scatter = self.ax.scatter(x + dx, y + dy, marker=marker, c=markercolor, s=markersize, edgecolors=markercolor)
 
-        xs, ys, dxs, dys = np.array(xs),np.array(ys),np.array(dxs)*scale,np.array(dys)*scale
-        if len(key)!=0:
-            return self.ax.scatter(xs+dxs,ys+dys,marker = marker, c = markercolor, s = markersize, edgecolors = markercolor), key
-        else:
-            return self.ax.scatter(xs+dxs,ys+dys,marker = marker, c = markercolor, s = markersize, edgecolors = markercolor)
+        return (scatter, key) if key else scatter
 
 
     def contour(self, lat, lt, f, **kwargs):
         """
-        Wrapper for matplotlib's contour function. Accepts lat, lt instead of x and y
+        Wrapper for Matplotlib's contour function using latitude and local time.
 
-        keywords passed to this function is passed on to matplotlib's contour
+        This function creates contour plots using latitude and local time coordinates.
+        It translates these coordinates into a Cartesian grid suitable for contour plotting.
+
+        Parameters
+        ----------
+        lat : array_like
+            Array of latitudes [deg] for the contour plot. Must be positive
+        lt : array_like
+            Array of local times [h] for the contour plot.
+        f : array_like
+            Array of values to contour.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to Matplotlib's contour function.
+
+        Returns
+        -------
+        matplotlib.contour.QuadContourSet
+            The contour plot object.
+
+        Notes
+        -----
+        The function flattens the input arrays and uses a grid interpolation to map the data
+        onto a uniform Cartesian grid for contour plotting. 
         """
+
         xea, yea = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = True)
         mask, _  = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = False)
         f = f.flatten()
         f[~np.isfinite(mask)] = np.nan
 
-        # convert to cartesian uniform grid
+        # Convert to Cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
-        points = np.vstack( tuple((xea, yea)) ).T
-        gridf = griddata(points, f, (xx, yy))
+        points = np.vstack((xea, yea)).T
+        gridf = griddata(points, f, (xx, yy), method='cubic')
 
-        # ... and plot
+        # Plot and return the contour
         return self.ax.contour(xx, yy, gridf, **kwargs)
 
 
     def contourf(self, lat, lt, f, **kwargs):
         """
-        Wrapper for matplotlib's contourf function. Accepts lat, lt instead of x and y
+        Wrapper for Matplotlib's contourf function using latitude and local time.
 
-        keywords passed to this function is passed on to matplotlib's contourf
+        This function creates filled contour plots (contourf) using positive latitude values and 
+        local time coordinates. It maps these coordinates onto a Cartesian grid suitable for contour plotting.
+
+        Parameters
+        ----------
+        lat : array_like
+            Array of latitudes [deg] for the contour plot. Must be positive.
+        lt : array_like
+            Array of local times [h] for the contour plot.
+        f : array_like
+            Array of values to contour.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to Matplotlib's contourf function.
+
+        Returns
+        -------
+        matplotlib.contour.QuadContourSet
+            The filled contour plot object.
+
+        Notes
+        -----
+        The function flattens the input arrays and uses a grid interpolation to map the data
+        onto a uniform Cartesian grid for contour plotting. 
         """
 
-        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = True)
-        mask, _  = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits = False)
+        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits=True)
+        mask, _ = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits=False)
         f = f.flatten()
         f[~np.isfinite(mask)] = np.nan
 
-        # convert to cartesian uniform grid
+        # Convert to Cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
-        points = np.vstack( tuple((xea, yea)) ).T
-        gridf = griddata(points, f, (xx, yy))
+        points = np.vstack((xea, yea)).T
+        gridf = griddata(points, f, (xx, yy), method='cubic')
 
-        # ... and plot
+        # Plot and return the filled contour
         return self.ax.contourf(xx, yy, gridf, **kwargs)
 
 
     def fill(self, lat, lt, **kwargs):
-        """ Fill polygon defined in lat/lt, **kwargs are given to self.ax.contour. LT in hours - no rotation
+        """
+        Fill a polygon defined by latitude and local time coordinates.
+
+        This function creates a filled polygon on the plot using latitude and local time coordinates.
+        The filling properties can be customized using additional keyword arguments.
+
+        Parameters
+        ----------
+        lat : array_like
+            Array of latitudes [deg] defining the vertices of the polygon. Must be positive
+        lt : array_like
+            Array of local times (in hours) corresponding to each latitude, defining the vertices of the polygon.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to Matplotlib's ax.fill function for customizing the polygon's appearance.
+
+        Returns
+        -------
+        list of matplotlib.patches.Polygon
+            A list containing the filled polygon object(s).
+
+
         """
 
         xx, yy = self._latlt2xy(lat.flatten(), lt.flatten())
 
-        # plot
+        # Plot and return the filled polygon
         return self.ax.fill(xx, yy, **kwargs)
 
 
-    def plot_terminator(self, time, sza = 90, north = True, apex = None, shadecolor = None, shade_kwargs={}, **kwargs):
-        """ shade the area antisunward of the terminator
-
-            Parameters
-            ----------
-            time : float or datetime
-                if datetime, time describes the time for which to calculate the
-                subsolar point and associated sunlight terminator. If float, it
-                desribes where to draw a horizontal terminator line - in
-                degrees from the pole towards the night side (think of it
-                approximately as dipole tilt angle)
-            sza : float, optional
-                the terminator is defined as contours of this solar zenith angle
-                default 90 degrees
-            north : bool, optional
-                set to True for terminator in the north (default), False for south
-            apex : apexpy.Apex object, optional
-                give an apexpy.Apex object to convert the terminator to magnetic
-                apex coordinates. By default it is plotted in geographic
-            shadecolor : string, optional
-                color of a shade to be drawn on the night side of the
-                terminator. Default is None, which means that no shade will be
-                drawn
-            shade_kwargs : dict
-                Used if shadecolor is not None. keywords passed to matplotlib.patches'
-                Pylogon function
-            kwargs : dict
-                keywords passed to matplotlib's plot function for the terminator line
+    def plot_terminator(self, time, sza=90, north=True, apex=None, shadecolor=None, shade_kwargs={}, **kwargs):
         """
-        returns= []
+        Plot the sunlight terminator, and (if shadecolor != None) shade area antisunward of the terminator.
+
+        Parameters
+        ----------
+        time : float or datetime
+            If datetime, calculates the subsolar point and sunlight terminator for the specified time.
+            If float, draws a horizontal terminator line at the specified degree from the pole towards the night side.
+        sza : float, optional
+            The terminator is defined as contours of this solar zenith angle. Default is 90 degrees.
+        north : bool, optional
+            Set to True for terminator in the north (default), False for south.
+        apex : apexpy.Apex object, optional
+            If provided, converts the terminator to magnetic apex coordinates. Default is geographic.
+        shadecolor : str, optional
+            Color for shading the night side of the terminator. Default is None (no shading).
+        shade_kwargs : dict
+            Keywords passed to matplotlib.patches.Polygon function if shadecolor is not None.
+        kwargs : dict
+            Keywords passed to matplotlib's plot function for the terminator line.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the plot objects created (terminator line, optional shading).
+        """
+
+        returns = []
         hemisphere = 1 if north else -1
 
-        if np.isscalar(time): # time is interpreted as dipole tilt angle
-            y0 = -(hemisphere * time + sza - 90) / (90. - self.minlat) # noon-midnight coordinate
+        if isinstance(time, (float, int)):  # time is interpreted as dipole tilt angle
+            y0 = -(hemisphere * time + sza - 90) / (90. - self.minlat)  # noon-midnight coordinate
             xr = np.sqrt(1 - y0**2)
 
-            x = np.array([-xr, xr]).flatten()
-            y = np.array([y0, y0]).flatten()
+            x = np.array([-xr, xr])
+            y = np.array([y0, y0])
 
-        else: # time should be a datetime object
+        elif isinstance(time, datetime):  # time is a datetime object
+            sslat, sslon = subsol(time)  # Substitute with the actual method to get subsolar lat, lon
 
-            sslat, sslon = subsol(time)
+            # Cartesian vector for subsolar point
+            ss = np.array([
+                np.cos(np.deg2rad(sslat)) * np.cos(np.deg2rad(sslon)),
+                np.cos(np.deg2rad(sslat)) * np.sin(np.deg2rad(sslon)),
+                np.sin(np.deg2rad(sslat))
+            ])
 
-            # make cartesian vector
-            x = np.cos(sslat * d2r) * np.cos(sslon * d2r)
-            y = np.cos(sslat * d2r) * np.sin(sslon * d2r)
-            z = np.sin(sslat * d2r)
-            ss = np.array([x, y, z]).flatten()
+            # Vector pointing towards dawn, normalized
+            dawn_vector = np.cross(ss, np.array([0, 0, 1]))
+            dawn_vector /= np.linalg.norm(dawn_vector)
 
-            # construct a vector pointing roughly towards dawn, and normalize
-            t0 = np.cross(ss, np.array([0, 0, 1]))
-            t0 = t0/np.linalg.norm(t0)
+            # Vector pointing northward at the 90 degree SZA contour
+            sza90_vector = np.cross(dawn_vector, ss)
 
-            # make a new vector pointing northward at the 90 degree SZA contour:
-            sza90 = np.cross(t0, ss)
+            # Rotate to get specified SZA contour (Rodrigues' rotation formula)
+            rotation_angle = np.deg2rad(sza - 90)
+            sza_vector = sza90_vector * np.cos(rotation_angle) + \
+                         np.cross(dawn_vector, sza90_vector) * np.sin(rotation_angle) + \
+                         dawn_vector * np.dot(dawn_vector, sza90_vector) * (1 - np.cos(rotation_angle))
 
-            # rotate this about the dawnward vector to get specified SZA contour
-            rotation_angle = (sza - 90) * d2r
+            # Trace out the trajectory
+            angles = np.linspace(-np.pi/2, 3*np.pi/2, 360)
+            r = sza_vector[:, np.newaxis] * np.cos(angles) + \
+                np.cross(ss, sza_vector)[:, np.newaxis] * np.sin(angles) + \
+                ss[:, np.newaxis] * np.dot(dawn_vector, sza90_vector) * (1 - np.cos(rotation_angle))
 
-            sza_vector = sza90 * np.cos(rotation_angle) + np.cross(t0, sza90) * np.sin(rotation_angle) + t0 * (np.sum(t0*sza90)) * (1 - np.cos(rotation_angle)) # (rodrigues formula)
-            sza_vector = sza_vector.flatten()
+            # Convert to spherical coordinates
+            t_lat = 90 - np.rad2deg(np.arccos(r[2]))
+            t_lon = np.rad2deg(np.arctan2(r[1], r[0])) % 360
 
-            # rotate this about the sun-Earth line to trace out the trajectory:
-            angles = np.r_[-np.pi/2 : 3*np.pi/2: 2*np.pi / 360][np.newaxis, :]
-            r = sza_vector[:, np.newaxis] * np.cos(angles) + np.cross(ss, sza_vector)[:, np.newaxis] * np.sin(angles) + ss[:, np.newaxis] * (np.sum(t0*sza90)) * (1 - np.cos(rotation_angle))
-
-            # convert to spherical
-            t_lat = 90 - np.arccos(r[2]) / d2r
-            t_lon = (np.arctan2(r[1], r[0])*180/np.pi) % 360
-
-            londiff = (t_lon - sslon + 180) % 360 - 180 # signed difference in longitude
-            t_lt = (180. + londiff)/15. # convert to lt with ssqlon at noon
+            # Longitude difference and conversion to local time
+            londiff = (t_lon - sslon + 180) % 360 - 180
+            t_lt = (180. + londiff) / 15.
 
             if apex is not None:
                 mlat, mlon = apex.geo2apex(t_lat, t_lon, apex.refh)
                 mlt = apex.mlon2mlt(mlon, time)
                 t_lat, t_lt = mlat, mlt
 
-            # limit contour to correct hemisphere:
-            iii = (t_lat >= self.minlat) if north else (t_lat <= -self.minlat)
-            if len(iii) == 0:
-                return 0 # terminator is outside plot
-            t_lat = t_lat[iii] #* hemisphere
-            t_lt = t_lt[iii]
+            # Limit contour to correct hemisphere
+            valid_indices = (t_lat >= self.minlat) if north else (t_lat <= -self.minlat)
+            if not np.any(valid_indices):
+                return None  # Terminator is outside plot
+            t_lat = t_lat[valid_indices]
+            t_lt = t_lt[valid_indices]
 
             x, y = self._latlt2xy(t_lat, t_lt)
 
+        else:
+            raise ValueError("time must be a float, int, or datetime object")
 
-        returns.append(self.ax.plot(x, y, **kwargs))
+        terminator_line = self.ax.plot(x, y, **kwargs)
+        returns.append(terminator_line)
 
-        if len(x) == 0: #terinator is not in the plot
-            return None 
+        if not x.size:  # Terminator is not in the plot
+            return None
 
-        x0, x1 = np.min([x[0], x[-1]]), np.max([x[0], x[-1]])
-        y0, y1 = np.min([y[0], y[-1]]), np.max([y[0], y[-1]])
-
-        a0 = np.arctan2(y0, x0)
-        a1 = np.arctan2(y1, x1)
-        if a1 < a0: a1 += 2*np.pi
-
-        a = np.linspace(a0, a1, 100)[::-1]
-
-        xx, yy = np.cos(a), np.sin(a)
-
+        # Shade area if shadecolor is provided
         if shadecolor is not None:
-             shade = Polygon(np.vstack((np.hstack((x[::hemisphere], xx)), np.hstack((y[::hemisphere], yy)))).T, closed = True, color = shadecolor, linewidth = 0, **shade_kwargs)
-             returns.append(self.ax.add_patch(shade))
+            x0, x1 = np.min(x), np.max(x)
+            y0, y1 = np.min(y), np.max(y)
+
+            a0 = np.arctan2(y0, x0)
+            a1 = np.arctan2(y1, x1)
+            if a1 < a0:
+                a1 += 2 * np.pi
+
+            a = np.linspace(a0, a1, 100)[::-1]
+            xx, yy = np.cos(a), np.sin(a)
+
+            shade = Polygon(np.vstack((np.hstack((x[::hemisphere], xx)), np.hstack((y[::hemisphere], yy)))).T,
+                            closed=True, color=shadecolor, linewidth=0, **shade_kwargs)
+            shade_patch = self.ax.add_patch(shade)
+            returns.append(shade_patch)
+
         return tuple(returns)
 
 
+    def filled_cells(self, lat, lt, latres, ltres, data, resolution=10, crange=None, levels=None, bgcolor=None, verbose=False, **kwargs):
+        """
+        Create a color plot of specified cells in latitude and local time with associated data.
 
-    def filled_cells(self, lat, lt, latres, ltres, data, resolution = 10, crange = None, levels = None, bgcolor = None, verbose = False, **kwargs):
-        """ specify a set of cells in lat and lt, along with a data array,
-            and make a color plot of the cells
+        Parameters
+        ----------
+        lat : array_like
+            Array of latitudes.
+        lt : array_like
+            Array of local times.
+        latres : array_like
+            Array of latitude resolutions.
+        ltres : array_like
+            Array of local time resolutions.
+        data : array_like
+            Data array to color the cells.
+        resolution : int, optional
+            Resolution for cell vertices. Default is 10.
+        crange : tuple or None, optional
+            Color range for the plot. Default is None.
+        levels : array_like or None, optional
+            Specific levels for color mapping. Default is None.
+        bgcolor : str or None, optional
+            Background color. Default is None (no background).
+        verbose : bool, optional
+            If True, prints additional information. Default is False.
+        **kwargs : dict
+            Additional keyword arguments passed to PolyCollection.
 
+        Returns
+        -------
+        matplotlib.collections.PolyCollection
+            The added PolyCollection object.
+
+        Raises
+        ------
+        ValueError
+            If input arrays are of unequal length.
         """
 
-        if not all([len(lat) == len(q) for q in [lt,ltres,data]]):
-            print("WARNING: Input arrays to filled_cells of unequal length! Your plot is probably incorrect")
+        # Validate input lengths
+        if not all(len(lat) == len(arr) for arr in [lt, ltres, data]):
+            raise ValueError("Input arrays to filled_cells must be of equal length.")
 
+        # Flatten input arrays
         lat, lt, latres, ltres, data = map(np.ravel, [lat, lt, latres, ltres, data])
+
+        # Apply mask
         mask = np.ones_like(data)
         mask[(~eval(self.ltlims)) | (lat < self.minlat)] = np.nan
-        data*=mask
-        if verbose:
-            print(lt.shape, lat.shape, latres.shape, ltres.shape)
+        data *= mask
 
-        la = np.vstack(((lt - 6) / 12. * np.pi + i * ltres / (resolution - 1.) / 12. * np.pi for i in range(resolution))).T
         if verbose:
-            print (la.shape)
+            print(f"Shapes - lt: {lt.shape}, lat: {lat.shape}, latres: {latres.shape}, ltres: {ltres.shape}")
+
+        # Calculate vertices
+        la = np.vstack(((lt - 6) / 12 * np.pi + i * ltres / (resolution - 1) / 12 * np.pi for i in range(resolution))).T
         ua = la[:, ::-1]
+        radial_factor = (90 - lat)[:, np.newaxis] / (90 - self.minlat)
+        radial_res_factor = (90 - lat - latres)[:, np.newaxis] / (90 - self.minlat)
 
-        vertslo = np.dstack(((90 - lat          )[:, np.newaxis] / (90. - self.minlat) * np.cos(la),
-                             (90 - lat          )[:, np.newaxis] / (90. - self.minlat) * np.sin(la)))
-        vertshi = np.dstack(((90 - lat - latres)[:, np.newaxis] / (90. - self.minlat) * np.cos(ua),
-                             (90 - lat - latres)[:, np.newaxis] / (90. - self.minlat) * np.sin(ua)))
-        verts = np.concatenate((vertslo, vertshi), axis = 1)
+        vertslo = np.dstack((radial_factor * np.cos(la), radial_factor * np.sin(la)))
+        vertshi = np.dstack((radial_res_factor * np.cos(ua), radial_res_factor * np.sin(ua)))
+        verts = np.concatenate((vertslo, vertshi), axis=1)
 
         if verbose:
-            print( verts.shape, vertslo.shape, vertshi.shape)
+            print(f"Vertices shape: {verts.shape}")
 
+        # Determine color map
+        cmap = kwargs.pop('cmap', plt.cm.viridis)
 
-        if 'cmap' in kwargs.keys():
-            cmap = kwargs['cmap']
-            kwargs.pop('cmap')
-        else:
-            cmap = plt.cm.viridis
-
+        # Create PolyCollection
         if levels is not None:
-            # set up a function that maps data values to color levels:
             nlevels = len(levels)
             lmin, lmax = levels.min(), levels.max()
-            self.colornorm = lambda x: plt.Normalize(lmin, lmax)(np.floor((x - lmin) / (lmax - lmin) * (nlevels - 1)) / (nlevels - 1) * (lmax - lmin) + lmin)
-            coll = PolyCollection(verts, facecolors = cmap(self.colornorm(data.flatten())), **kwargs)
-
+            norm_func = plt.Normalize(lmin, lmax)
+            colornorm = lambda x: norm_func(np.floor((x - lmin) / (lmax - lmin) * (nlevels - 1)) / (nlevels - 1) * (lmax - lmin) + lmin)
+            coll = PolyCollection(verts, facecolors=cmap(colornorm(data.flatten())), **kwargs)
         else:
-            coll = PolyCollection(verts, array = data, cmap = cmap, **kwargs)
+            coll = PolyCollection(verts, array=data, cmap=cmap, **kwargs)
             if crange is not None:
-                coll.set_clim(crange[0], crange[1])
+                coll.set_clim(*crange)
 
-
-
-        if bgcolor != None:
-            radius = 2*((90 - self.minlat)/ (90 - self.minlat))
-            bg = Ellipse([0, 0], radius, radius, zorder = 0, facecolor = bgcolor)
+        # Add background if specified
+        if bgcolor:
+            radius = 2 * ((90 - self.minlat) / (90 - self.minlat))
+            bg = Ellipse([0, 0], radius, radius, zorder=0, facecolor=bgcolor)
             self.ax.add_artist(bg)
 
-
+        # Add collection to axis
         return self.ax.add_collection(coll)
 
 
-    def plotimg(self,lat,lt,image,corr=True , crange = None, bgcolor = None, **kwargs):
+    def plotimg(self, lat, lt, image, corr=True, crange=None, bgcolor=None, **kwargs):
         """
         Displays an image in polar coordinates.
-        lat,lt,image are m x n arrays.
-        If corr == True, lat and lt are corrected to edge coordinates. The plotted image is (m-2) x (n-2)
-        If corr == False, lat and lat are assumed to be edge coordinates (plotted with a small offset). The plotted image is (m-1) x (n-1).
-        crange is a tuple giving lower and upper colormap limits.
-        bgcolor is a str giving background color inside the polar region.
+
+        Parameters
+        ----------
+        lat : array_like
+            2D array of latitudes.
+        lt : array_like
+            2D array of local times.
+        image : array_like
+            2D array representing the image to be plotted.
+        corr : bool, optional
+            Controls how latitude and local time arrays are interpreted:
+            - If True, lat and lt are assumed to represent cell center coordinates. The function calculates edge coordinates by 
+              averaging adjacent center coordinates, leading to a plotted image of size (m-2) x (n-2).
+            - If False, lat and lt are assumed to be edge coordinates. The function plots the image with a small offset, 
+              resulting in a plotted image of size (m-1) x (n-1).
+        crange : tuple or None, optional
+            Lower and upper colormap limits.
+        bgcolor : str or None, optional
+            Background color inside the polar region.
+
+        Returns
+        -------
+        matplotlib.collections.PolyCollection
+            The added PolyCollection object.
         """
 
-        x,y =self._latlt2xy(lat, lt)
+        # Validate input array shapes
+        if lat.shape != lt.shape or lat.shape != image.shape:
+            raise ValueError("lat, lt, and image must have the same shape.")
+
+        x, y = self._latlt2xy(lat, lt)
+
+        # Correct coordinates if required
         if corr:
-            xe = np.full(np.subtract(x.shape,(1,1)),np.nan)
-            ye = np.full(np.subtract(y.shape,(1,1)),np.nan)
-            for i in range(xe.shape[0]):
-                for j in range(xe.shape[1]):
-                    xe[i,j]=np.mean(x[i:i+2,j:j+2])
-                    ye[i,j]=np.mean(y[i:i+2,j:j+2])
-            x=xe
-            y=ye
-            data = image[1:-1,1 :-1]
+            xe = (x[:-1, :-1] + x[1:, 1:]) / 2
+            ye = (y[:-1, :-1] + y[1:, 1:]) / 2
+            x, y = xe, ye
+            data = image[1:-1, 1:-1]
         else:
-            data = image[1:, :-1]
+            data = image[:-1, :-1]
 
-        ll = (x[1:,  :-1].flatten(), y[1:,  :-1].flatten())
-        lr = (x[1:,   1:].flatten(), y[1:,   1:].flatten())
-        ul = (x[:-1, :-1].flatten(), y[:-1, :-1].flatten())
-        ur = (x[:-1,  1:].flatten(), y[:-1,  1:].flatten())
+        # Define vertices
+        ll = (x[:-1, :-1].flatten(), y[:-1, :-1].flatten())
+        lr = (x[:-1, 1:].flatten(), y[:-1, 1:].flatten())
+        ul = (x[1:, :-1].flatten(), y[1:, :-1].flatten())
+        ur = (x[1:, 1:].flatten(), y[1:, 1:].flatten())
 
+        # Create vertex arrays
         vertsx = np.vstack((ll[0], lr[0], ur[0], ul[0])).T
         vertsy = np.vstack((ll[1], lr[1], ur[1], ul[1])).T
 
-        iii = np.where(vertsx**2 + vertsy**2 <=1, True, False)
-        iii = np.any(iii, axis = 1).nonzero()[0]
+        # Filter vertices within unit circle
+        valid_indices = np.any(vertsx**2 + vertsy**2 <= 1, axis=1)
+        verts = np.dstack((vertsx[valid_indices], vertsy[valid_indices]))
 
-        vertsx = vertsx[iii]
-        vertsy = vertsy[iii]
-
-        verts = np.dstack((vertsx, vertsy))
-        if 'cmap' in kwargs.keys():
-            cmap = kwargs.pop('cmap')
-        else:
-            cmap = plt.cm.viridis
+        # Set color map
+        cmap = kwargs.pop('cmap', plt.cm.viridis)
         data = np.ma.array(data, mask=np.isnan(data))
-        coll = PolyCollection(verts, array=data.flatten()[iii], cmap = cmap, edgecolors='none', **kwargs)
-        if crange is not None:
-            coll.set_clim(crange[0], crange[1])
+        
+        # Create PolyCollection
+        coll = PolyCollection(verts, array=data.flatten()[valid_indices], cmap=cmap, edgecolors='none', **kwargs)
+        if crange:
+            coll.set_clim(*crange)
 
-        if bgcolor is not None:
-            radius = 2*((90 - self.minlat)/ (90 - self.minlat))
-            bg = Ellipse([0, 0], radius, radius, zorder = 0, facecolor = bgcolor)
+        # Add background if specified
+        if bgcolor:
+            radius = 2 * ((90 - self.minlat) / (90 - self.minlat))
+            bg = Ellipse([0, 0], radius, radius, zorder=0, facecolor=bgcolor)
             self.ax.add_artist(bg)
 
+        # Add collection to the plot
         return self.ax.add_collection(coll)
 
 
-    def ampereplot(self, keys, data, contour = False, crange = None, nlevels = 100, cbar = False, **kwargs):
-        """ plot ampere data. keys is the columns of the ampere dataframes.
-            data is an array of equal size, that will be plotted in grids of 1 degree by 1 hour size
-
-            set cbar True to draw a color bar
-
-            2021-7-1: Kalle: Added this function from an old version of polarsublot. It worked in 2016, but I have
-                             no clue if it still works...
+    def ampereplot(self, keys, data, contour=False, crange=None, nlevels=100, cbar=False, **kwargs):
         """
-        data = np.array(data)
+        Plot AMPERE data in a polar coordinate system.
 
-        # MAKE VERTICES
-        colats, lts = np.array(list(keys)).T
+        Parameters
+        ----------
+        keys : array_like
+            Columns of the AMPERE dataframes, representing (colatitude, local time) pairs.
+        data : array_like
+            Data array corresponding to each (colatitude, local time) pair.
+        contour : bool, optional
+            If True, plots a smooth contour. Otherwise, plots grid cells. Default is False.
+        crange : tuple or None, optional
+            Color range for the plot (min, max). Default is None.
+        nlevels : int, optional
+            Number of levels for contour plot. Default is 100.
+        cbar : bool, optional
+            If True, a color bar is drawn. Default is False.
+        **kwargs : dict
+            Additional keyword arguments for the plot.
+
+        Returns
+        -------
+        matplotlib.collections.PolyCollection or matplotlib.contour.QuadContourSet
+            The plot object created.
+
+        Raises
+        ------
+        ValueError
+            If `keys` and `data` arrays do not have compatible shapes.
+
+        """
+
+        # Validate input shapes
+        if len(keys) != len(data):
+            raise ValueError("The length of 'keys' and 'data' must be the same.")
+
+        data = np.array(data)
+        colats, lts = np.array(keys).T
         lats = np.abs(90. - colats)
 
-        ltres, latres = 1, 1
+        cmap = kwargs.pop('cmap', plt.cm.RdBu_r)
 
-        if 'cmap' in kwargs.keys():
-            cmap = kwargs['cmap']
-            kwargs.pop('cmap')
-        else:
-            cmap = plt.cm.RdBu_r
-
-        if not contour: # plot so that the grid cells are seen
+        # Grid cell plotting
+        if not contour:
             latl, ltl = lats, lts
-            latu = latl + latres
-            ltr  = ltl + ltres
-            verts = np.empty((len(keys), 20, 2))
+            latu, ltr = latl + 1, ltl + 1
+            verts = []
 
-            for i in range(len(lts)):
-                # convert corners to cartesian (lat 90 at origin, lat 0 at distance 1 from origin)
-                la = np.linspace((ltl[i]-6)/12.*np.pi, (ltr[i]-6)/12.*np.pi, 10)
-                ua = np.linspace((ltl[i]-6)/12.*np.pi, (ltr[i]-6)/12.*np.pi, 10)[::-1]
-                verts[i, :10, :]  = (90 - latl[i])/(90 - self.minlat) * np.array([np.cos(la), np.sin(la)]).T
-                verts[i,  10:, :] = (90 - latu[i])/(90 - self.minlat) * np.array([np.cos(ua), np.sin(ua)]).T
+            for lat, lt in zip(latl, ltl):
+                # Calculate vertices
+                la = np.linspace((lt-6)/12.*np.pi, (ltr-6)/12.*np.pi, 10)
+                ua = la[::-1]
+                lower = (90 - lat) / (90 - self.minlat) * np.vstack([np.cos(la), np.sin(la)]).T
+                upper = (90 - lat - 1) / (90 - self.minlat) * np.vstack([np.cos(ua), np.sin(ua)]).T
+                verts.append(np.concatenate([lower, upper]))
 
-            # the sign of the data is changed to make the color scale consistent with AMPERE summary plots
-            coll = PolyCollection(verts[np.isfinite(data)], array = data[np.isfinite(data)], cmap = cmap, edgecolors='none', **kwargs)
-            if crange is not None:
-                coll.set_clim(crange[0], crange[1])
+            verts = np.array(verts)[np.isfinite(data)]
+            coll = PolyCollection(verts, array=data[np.isfinite(data)], cmap=cmap, edgecolors='none', **kwargs)
+            if crange:
+                coll.set_clim(*crange)
             self.ax.add_collection(coll)
 
-        else: # plot a smooth contour
-            coll = self.contourf(lats, lts, data, cmap = cmap, levels = np.linspace(crange[0], crange[1], nlevels), extend = 'both', **kwargs)
+        # Smooth contour plotting
+        else:
+            coll = self.contourf(lats, lts, data, cmap=cmap, levels=np.linspace(*crange, nlevels), extend='both', **kwargs)
 
+        # Color bar
         if cbar:
-
             clim = coll.get_clim()
-            axpos = self.ax.get_position().bounds # position of current plot
-            cbax = self.ax.figure.add_subplot(111)
-            cbax.set_position([axpos[0] + axpos[2], axpos[1], 0.02, axpos[3]])
-            #cbax.get_xaxis().set_visible(False)
-            #cbax.get_yaxis().set_visible(False)
-            RESOLUTION = 100
-            colors = np.linspace(clim[0], clim[1], RESOLUTION + 1)
-            colors -= colors.min()
-            cbax.set_ylim(colors.min(), colors.max())
-            verts = np.empty((RESOLUTION, 4, 2))
-            for i in range(RESOLUTION):
-                verts[i, :, :] = np.array([[0, 0, 1, 1], [colors[i], colors[i+1], colors[i+1], colors[i]]]).T
-
-            cbarcoll = PolyCollection(verts, array = np.linspace(clim[0], clim[1], RESOLUTION), cmap = cmap, edgecolors='none')
-            cbarcoll.set_clim(clim)
-            cbax.add_collection(cbarcoll)
-
-            cbax.set_xlabel(r'$\mu$A/m$^2$', labelpad = 1)
-            cbax.set_yticks([colors.min(), 0 - clim[0], colors.max()])
-            cbax.set_yticklabels([str(clim[0]), '0', str(clim[1])])
-            cbax.set_xlim(0, 1)
-            cbax.set_xticks([0, 1])
-            cbax.set_xticklabels(['', ''])
+            cbar = plt.colorbar(coll, ax=self.ax, orientation='vertical', cmap=cmap)
+            cbar.set_clim(*clim)
+            cbar.set_label(r'$\mu$A/m$^2$')
 
         return coll
 
 
-    def coastlines(self, time = None, mag = None, north = True, resolution = '50m', **kwargs):
-        """ plot coastlines
-
-        Coastline data are read from numpy savez files. These files are made
-        with the download_coastlines.py script in the helper_scripts folder,
-        which uses the cartopy module.
+    def coastlines(self, time=None, mag=None, north=True, resolution='50m', **kwargs):
+        """
+        Plot coastlines in either geographic or magnetic coordinates.
 
         Parameters
         ----------
-        time: datetime, optional
-            give a datetime to replace longitude with local time when
-            plotting coastlines
-        mag: apexpy.Apex, optional
-            give an apexpy.Apex object to convert coastlines to magnetic
-            apex coordinates. If None (default), coastlines will be
-            plotted in geographic coordinates
-        north: bool, optional
-            set to False if you want coastlines plotted for the southern
-            hemisphere. Default is True
-        resolution: string, optional
-            Set to '50m' or '110m' to adjust the resolution of the coastlines.
-            These options correspond to options given to cartopy. Default is
-            '50m', which is the highest resolution.
-        **kwargs: dict, optional
-            keywords passed to matplotlib's plot function
+        time : datetime, optional
+            If provided, converts longitude to local time for plotting.
+        mag : apexpy.Apex, optional
+            If provided, converts geographic coordinates to magnetic apex coordinates.
+        north : bool, optional
+            If False, plots coastlines for the southern hemisphere. Default is True.
+        resolution : str, optional
+            Resolution of the coastline data, either '50m' or '110m'. Default is '50m'.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to matplotlib's LineCollection.
+
+        Returns
+        -------
+        matplotlib.collections.LineCollection
+            The LineCollection object of the plotted coastlines.
+
+        Raises
+        ------
+        FileNotFoundError
+            If coastline data files are not found.
+        ValueError
+            If an unsupported resolution is provided.
         """
 
-        coastlines = np.load(datapath + 'coastlines_' + resolution + '.npz')
+        # Validate resolution
+        if resolution not in ['50m', '110m']:
+            raise ValueError("Unsupported resolution. Choose either '50m' or '110m'.")
+
+        # Load coastline data
+        try:
+            coastlines = np.load(datapath + 'coastlines_' + resolution + '.npz')
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Coastline data file for resolution '{resolution}' not found.")
 
         segments = []
         for cl in coastlines:
             lat, lon = coastlines[cl]
 
-            # convert lat and lon to magnetic if mag is given:
+            # Convert to magnetic coordinates if provided
             if mag is not None:
                 lat, lon = mag.geo2apex(lat, lon, mag.refh)
 
-            if time is not None: # calculate local time if time is given
-                if mag is None: # calculate geographic local time
-                    sslat, sslon = subsol(time)
+            # Adjust longitude for local time if time is given
+            if time is not None:
+                if mag is None:  # Geographic local time
+                    sslat, sslon = subsol(time)  # Replace with your method to get subsolar lat, lon
                     londiff = (lon - sslon + 180) % 360 - 180
-                    lon = (180. + londiff)/15.
-                else: # magnetic local time:
+                    lon = (180. + londiff) / 15.
+                else:  # Magnetic local time
                     lon = mag.mlon2mlt(lon, time)
-            else: # keep longitude - just divide by 15 to get unit hours
-                lon = lon / 15
 
+            # Adjust for southern hemisphere
             if not north:
-                lat = -1 * lat
-            if not np.any(lat > self.minlat):
-                continue
+                lat = -lat
 
-            iii = lat > self.minlat
-            lat[~iii] = np.nan
-            lon[~iii] = np.nan
-
+            # Filter and prepare segments
+            valid = lat > self.minlat
+            lat[~valid], lon[~valid] = np.nan, np.nan
             x, y = self._latlt2xy(lat, lon)
-
             segments.append(np.vstack((x, y)).T)
 
+        # Create and add LineCollection
         collection = LineCollection(segments, **kwargs)
         return self.ax.add_collection(collection)
 
 
-
     def _latlt2xy(self, lat, lt, ignore_plot_limits=False):
         """
+        Convert latitude and local time to x, y coordinates in a polar plot.
 
         Parameters
         ----------
-        lt : TYPE
-            DESCRIPTION.
-        lat : TYPE
-            DESCRIPTION.
-        ignore_plot_limits : boolean, optional
-            When True the conversion will ignore the limits of the plot allowing plotting outside
-            the limits of the subplot, for example this is used in writeLTlabels. The default is False.
+        lat : array_like
+            Array of latitudes in degrees. Latitudes are mirrored and absolute valued.
+        lt : array_like
+            Array of local times in hours. The local time is wrapped to fit within a 24-hour range.
+        ignore_plot_limits : bool, optional
+            If True, allows plotting outside the predefined plot limits. Useful for labels or special markers.
+            Default is False.
 
         Raises
         ------
         ValueError
-            DESCRIPTION.
+            Raised if the input arrays `lat` and `lt` do not have the same size.
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
-
+        x : np.ndarray
+            The x-coordinate(s) in the polar plot.
+        y : np.ndarray
+            The y-coordinate(s) in the polar plot. Coordinates are masked based on plot limits unless 
+            `ignore_plot_limits` is True.
         """
-
         np.seterr(invalid='ignore', divide='ignore')
         lt = np.array(lt) % 24
         lat = np.abs(np.array(lat))
 
-        if lt.size!= lat.size:
-            raise ValueError('x and y must be the same size')
+        if lt.size != lat.size:
+            raise ValueError('Latitude and local time arrays must be the same size')
 
-        r = (90. - np.abs(lat))/(90. - self.minlat)
-        a = (lt - 6.)/12.*np.pi
+        r = (90. - np.abs(lat)) / (90. - self.minlat)
+        a = (lt - 6.) / 12. * np.pi
 
-        x, y = r*np.cos(a), r*np.sin(a)
+        x, y = r * np.cos(a), r * np.sin(a)
 
         if ignore_plot_limits:
             return x, y
@@ -815,32 +1129,32 @@ class Polarplot(object):
             mask[(~eval(self.ltlims)) | (lat < self.minlat)] = np.nan
             return x * mask, y * mask
 
+
     def _xy2latlt(self, x, y, ignore_plot_limits=False):
         """
-        convert x, y to lt, lat, where x**2 + y**2 = 1 corresponds to self.minlat
+        Convert x, y coordinates in a polar plot to latitude and local time.
 
         Parameters
         ----------
-        x : float/integer/list/array
-            DESCRIPTION.
-        y : TYPE
-            DESCRIPTION.
-        ignore_plot_limits : boolean, optional
-            When True the conversion will ignore the limits of the plot allowing plotting outside
-            the limits of the subplot, for example this is used in writeLTlabels. The default is False.
+        x : float or array_like
+            X-coordinate(s) in the polar plot.
+        y : float or array_like
+            Y-coordinate(s) in the polar plot.
+        ignore_plot_limits : bool, optional
+            If True, allows conversion without considering the predefined plot limits. Default is False.
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
-        TYPE
-            DESCRIPTION.
-
+        lat : np.ndarray
+            The calculated latitude(s) in degrees.
+        lt : np.ndarray
+            The calculated local time(s) in hours. Coordinates are masked based on plot limits unless 
+            `ignore_plot_limits` is True.
         """
-        x, y = np.array(x, ndmin = 1, dtype='float64'), np.array(y, ndmin = 1, dtype='float64') # convert to array to allow item assignment
+        x, y = np.array(x, ndmin=1, dtype='float64'), np.array(y, ndmin=1, dtype='float64')
 
-        lat = 90 - np.sqrt(x**2 + y**2)*(90. - self.minlat)
-        lt = np.arctan2(y, x)*12/np.pi + 6
+        lat = 90 - np.sqrt(x**2 + y**2) * (90. - self.minlat)
+        lt = np.arctan2(y, x) * 12 / np.pi + 6
         lt = lt % 24
 
         if ignore_plot_limits:
@@ -852,27 +1166,81 @@ class Polarplot(object):
 
 
     def _northEastToCartesian(self, north, east, lt):
-        a = (lt - 6)/12*np.pi # convert LT to angle with x axis (pointing from pole towards dawn)
+        """
+        Convert northward and eastward components to Cartesian coordinates.
 
-        x1 = np.array([-north*np.cos(a), -north*np.sin(a)]) # arrow direction towards origin (northward)
-        x2 = np.array([-east*np.sin(a),  east*np.cos(a)])   # arrow direction eastward
+        This function is used for converting directional data (e.g., wind or current vectors) from
+        northward and eastward components to Cartesian coordinates in a polar plot.
+
+        Parameters
+        ----------
+        north : array_like
+            Northward component(s) of the vector.
+        east : array_like
+            Eastward component(s) of the vector.
+        lt : array_like
+            Local time(s) corresponding to each vector, used for the directional conversion.
+
+        Returns
+        -------
+        np.ndarray
+            Cartesian coordinates (x, y) of the input vectors in the polar plot.
+        """
+        a = (lt - 6) / 12 * np.pi  # convert LT to angle with x axis (pointing from pole towards dawn)
+
+        x1 = np.array([-north * np.cos(a), -north * np.sin(a)])  # arrow direction towards origin (northward)
+        x2 = np.array([-east * np.sin(a), east * np.cos(a)])     # arrow direction eastward
 
         return x1 + x2
 
 
-    def make_format(current, lt_label='lt', lat_label='lat'):
-    # current and other are axes
-        def format_coord(x, y):
-            # x, y are data coordinates
-            # convert to display coords
-            display_coord = current._xy2latlt(x, y)[::-1]
-            string_original= 'x={:.2f}, y={:.2f}'.format(x, y)
-            string_magnetic= f'{lt_label}={float(display_coord[0]):.2f}, {lat_label}={float(display_coord[1]):.2f}'
-            
-            
-            return (string_original.ljust(20)+string_magnetic)
-        return format_coord
+    def _create_coordinate_formatter(self, lt_label='lt', lat_label='lat'):
+        """
+        Creates a formatter function for displaying both Cartesian and transformed coordinates in a plot.
 
+        This method is useful for enhancing interactivity in plots, especially when working with
+        data in different coordinate systems. It shows both the original Cartesian coordinates and
+        their corresponding transformed coordinates (like local time and latitude).
+
+        Parameters
+        ----------
+        lt_label : str, optional
+            Label for the transformed x-coordinate (default is 'lt' for local time).
+        lat_label : str, optional
+            Label for the transformed y-coordinate (default is 'lat' for latitude).
+
+        Returns
+        -------
+        function
+            A function that takes x, y coordinates and returns a formatted string with both
+            the original and transformed coordinates.
+
+        """
+
+        def format_coord(x, y):
+            """
+            Formatter function for coordinates.
+
+            Parameters
+            ----------
+            x : float
+                The x-coordinate in the plot's data space.
+            y : float
+                The y-coordinate in the plot's data space.
+
+            Returns
+            -------
+            str
+                A string that combines both original and transformed coordinates.
+            """
+            transformed_coord = self._xy2latlt(x, y)
+            lat, lt = transformed_coord[::-1]
+            string_original = f'x={x:.2f}, y={y:.2f}'
+            string_transformed = f'{lt_label}={lt:.2f}, {lat_label}={lat:.2f}'
+
+            return f"{string_original.ljust(20)}{string_transformed}"
+
+        return format_coord
 
 
 
