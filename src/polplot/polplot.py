@@ -261,15 +261,16 @@ class Polarplot(object):
             returns.append(self.writeLTlabels())
         return tuple(returns)
 
+
     def writeLTlabels(self, lat = None, degrees = False, **kwargs):
         """ 
-        Write local time labels at given latitude (default minlat - 2)
+        Write local time labels at given latitude (default minlat)
         
         If degrees is True, longitude will be used instead of hour
         """
         
         if lat is None:
-            lat = self.minlat - 2
+            lat = self.minlat
         
         labels=[]
         
@@ -316,7 +317,7 @@ class Polarplot(object):
         rotation : int, default 45
             Text rotation angle.
         color : str, default 'lightgrey'
-            Text color.
+            Text color. Set to (0, 0, 0, 0) to disable background
         backgroundcolor : str, default 'white'
             Background color of the text.
         zorder : int, default 2
@@ -339,7 +340,7 @@ class Polarplot(object):
         return labels
 
 
-    def plotpins(self, lats, lts, poleward, eastward, rotation=0, SCALE=None, size=10, unit='', colors='black', markercolor='black', marker='o', markersize=20, **kwargs):
+    def plotpins(self, lats, lts, poleward, eastward, reverse=False, rotation=0, SCALE=None, size=10, unit='', colors='black', markercolor='black', marker='o', markersize=20, **kwargs):
         """
         Plot a vector field with dots and lines representing vectors.
 
@@ -355,6 +356,8 @@ class Polarplot(object):
             Poleward component of each vector.
         eastward : array_like
             Eastward component of each vector.
+        reverse : bool, optional
+            If True, the pins will be placed at the end of the vectors. Default is False
         rotation : float, optional
             Rotation angle for vectors, in degrees. Default is 0.
         SCALE : float or None, optional
@@ -401,7 +404,10 @@ class Polarplot(object):
             ])
 
         if markersize != 0:
-            returns.append(self.scatter(lats, lts, marker=marker, c=markercolor, s=markersize, edgecolors=markercolor))
+            if reverse:
+                returns.append(self.ax.scatter(x + dx, y + dy, marker=marker, c=markercolor, s=markersize, edgecolors=markercolor))
+            else:
+                returns.append(self.scatter(lats, lts, marker=marker, c=markercolor, s=markersize, edgecolors=markercolor))
 
         return tuple(returns)
 
@@ -461,74 +467,6 @@ class Polarplot(object):
         return q
 
 
-    def plottrack(self, lats, lts, poleward, eastward, rotation=0, SCALE=None, size=10, unit='', color='black', markercolor='black', marker='o', markersize=20, **kwargs):
-        """
-        Plot a vector field where each vector is represented as a dot at the tip of the arrow.
-
-        Unlike `plotpins`, this function plots a dot at the location where the tip of the arrow would be,
-        rather than a line pointing in the direction of the vector.
-
-        Parameters
-        ----------
-        lats : array_like
-            Array of latitudes [deg] for each vector. Must be positive
-        lts : array_like
-            Array of local times [h] for each vector.
-        poleward : array_like
-            Poleward component of each vector.
-        eastward : array_like
-            Eastward component of each vector.
-        rotation : float, optional
-            Rotation angle for the vectors, in degrees. Default is 0.
-        SCALE : float or None, optional
-            Scale factor for vector magnitude. If None, a default scale of 1 is used.
-        size : int, optional
-            Font size for the unit text. Default is 10.
-        unit : str, optional
-            Unit label for the scale bar. Default is an empty string.
-        color : str, optional
-            Color for the vector lines. Default is 'black'.
-        markercolor : str, optional
-            Color for the markers. Default is 'black'.
-        marker : str, optional
-            Marker style. Default is 'o' (circle).
-        markersize : int, optional
-            Size of the markers. Default is 20.
-        **kwargs : dict, optional
-            Additional keyword arguments passed to `ax.scatter` for marker customization.
-
-        Returns
-        -------
-        matplotlib.collections.PathCollection, list
-            The scatter plot object, and optionally, scale bar elements as a list.
-
-        Notes
-        -----
-        This function is similar to `plotpins` but differs in the representation of vectors.
-        It can be used for visualizing vector fields where the emphasis is on the end point of the vectors.
-        """
-
-        lts, lats, poleward, eastward = [np.asarray(a).flatten() for a in (lts, lats, poleward, eastward)]
-        R = np.array([[np.cos(rotation), -np.sin(rotation)], 
-                      [np.sin(rotation), np.cos(rotation)]])
-
-        key_x, key_y = kwargs.pop('key_coords', (0.9, 0.95))
-        key = []
-
-        scale = 0.1 / SCALE if SCALE is not None else 1.
-
-        if SCALE is not None and unit:
-            key.append(self.ax.plot([key_x, key_x + 0.1], [key_y, key_y], color=color, linestyle='-', linewidth=2))
-            key.append(self.ax.text(key_x, key_y, f'{SCALE:.1f} {unit}', ha='right', va='center', fontsize=size))
-
-        x, y = self._latlt2xy(lats, lts)
-        dx, dy = (R.dot(self._northEastToCartesian(poleward, eastward, lts)) * scale).T
-
-        scatter = self.ax.scatter(x + dx, y + dy, marker=marker, c=markercolor, s=markersize, edgecolors=markercolor)
-
-        return (scatter, key) if key else scatter
-
-
     def contour(self, lat, lt, f, **kwargs):
         """
         Wrapper for Matplotlib's contour function using latitude and local time.
@@ -566,7 +504,7 @@ class Polarplot(object):
         # Convert to Cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
         points = np.vstack((xea, yea)).T
-        gridf = griddata(points, f, (xx, yy), method='cubic')
+        gridf = griddata(points, f, (xx, yy), method = 'linear')
 
         # Plot and return the contour
         return self.ax.contour(xx, yy, gridf, **kwargs)
@@ -609,7 +547,7 @@ class Polarplot(object):
         # Convert to Cartesian uniform grid
         xx, yy = np.meshgrid(np.linspace(-1, 1, 150), np.linspace(-1, 1, 150))
         points = np.vstack((xea, yea)).T
-        gridf = griddata(points, f, (xx, yy), method='cubic')
+        gridf = griddata(points, f, (xx, yy), method = 'linear')
 
         # Plot and return the filled contour
         return self.ax.contourf(xx, yy, gridf, **kwargs)
@@ -805,8 +743,10 @@ class Polarplot(object):
         """
 
         # Validate input lengths
-        if not all(len(lat) == len(arr) for arr in [lt, ltres, data]):
-            raise ValueError("Input arrays to filled_cells must be of equal length.")
+        try: 
+            lat, lt, latres, ltres, data = np.broadcast_arrays(lat, lt, latres, ltres, data)
+        except:
+            raise ValueError("Input arrays to filled_cells are not broadcastable.")
 
         # Flatten input arrays
         lat, lt, latres, ltres, data = map(np.ravel, [lat, lt, latres, ltres, data])
@@ -820,7 +760,7 @@ class Polarplot(object):
             print(f"Shapes - lt: {lt.shape}, lat: {lat.shape}, latres: {latres.shape}, ltres: {ltres.shape}")
 
         # Calculate vertices
-        la = np.vstack(((lt - 6) / 12 * np.pi + i * ltres / (resolution - 1) / 12 * np.pi for i in range(resolution))).T
+        la = np.vstack([(lt - 6) / 12 * np.pi + i * ltres / (resolution - 1) / 12 * np.pi for i in range(resolution)]).T
         ua = la[:, ::-1]
         radial_factor = (90 - lat)[:, np.newaxis] / (90 - self.minlat)
         radial_res_factor = (90 - lat - latres)[:, np.newaxis] / (90 - self.minlat)
@@ -840,7 +780,7 @@ class Polarplot(object):
             nlevels = len(levels)
             lmin, lmax = levels.min(), levels.max()
             norm_func = plt.Normalize(lmin, lmax)
-            colornorm = lambda x: norm_func(np.floor((x - lmin) / (lmax - lmin) * (nlevels - 1)) / (nlevels - 1) * (lmax - lmin) + lmin)
+            colornorm = lambda x: norm_func(np.floor((x - lmin) / (lmax - lmin) * nlevels) / nlevels * (lmax - lmin) + lmin)
             coll = PolyCollection(verts, facecolors=cmap(colornorm(data.flatten())), **kwargs)
         else:
             coll = PolyCollection(verts, array=data, cmap=cmap, **kwargs)
@@ -912,8 +852,10 @@ class Polarplot(object):
         vertsy = np.vstack((ll[1], lr[1], ur[1], ul[1])).T
 
         # Filter vertices within unit circle
+        warnings.filterwarnings("ignore", message="overflow encountered in square")
         valid_indices = np.any(vertsx**2 + vertsy**2 <= 1, axis=1)
         verts = np.dstack((vertsx[valid_indices], vertsy[valid_indices]))
+        warnings.resetwarnings()
 
         # Set color map
         cmap = kwargs.pop('cmap', plt.cm.viridis)
@@ -932,83 +874,6 @@ class Polarplot(object):
 
         # Add collection to the plot
         return self.ax.add_collection(coll)
-
-
-    def ampereplot(self, keys, data, contour=False, crange=None, nlevels=100, cbar=False, **kwargs):
-        """
-        Plot AMPERE data in a polar coordinate system.
-
-        Parameters
-        ----------
-        keys : array_like
-            Columns of the AMPERE dataframes, representing (colatitude, local time) pairs.
-        data : array_like
-            Data array corresponding to each (colatitude, local time) pair.
-        contour : bool, optional
-            If True, plots a smooth contour. Otherwise, plots grid cells. Default is False.
-        crange : tuple or None, optional
-            Color range for the plot (min, max). Default is None.
-        nlevels : int, optional
-            Number of levels for contour plot. Default is 100.
-        cbar : bool, optional
-            If True, a color bar is drawn. Default is False.
-        **kwargs : dict
-            Additional keyword arguments for the plot.
-
-        Returns
-        -------
-        matplotlib.collections.PolyCollection or matplotlib.contour.QuadContourSet
-            The plot object created.
-
-        Raises
-        ------
-        ValueError
-            If `keys` and `data` arrays do not have compatible shapes.
-
-        """
-
-        # Validate input shapes
-        if len(keys) != len(data):
-            raise ValueError("The length of 'keys' and 'data' must be the same.")
-
-        data = np.array(data)
-        colats, lts = np.array(keys).T
-        lats = np.abs(90. - colats)
-
-        cmap = kwargs.pop('cmap', plt.cm.RdBu_r)
-
-        # Grid cell plotting
-        if not contour:
-            latl, ltl = lats, lts
-            latu, ltr = latl + 1, ltl + 1
-            verts = []
-
-            for lat, lt in zip(latl, ltl):
-                # Calculate vertices
-                la = np.linspace((lt-6)/12.*np.pi, (ltr-6)/12.*np.pi, 10)
-                ua = la[::-1]
-                lower = (90 - lat) / (90 - self.minlat) * np.vstack([np.cos(la), np.sin(la)]).T
-                upper = (90 - lat - 1) / (90 - self.minlat) * np.vstack([np.cos(ua), np.sin(ua)]).T
-                verts.append(np.concatenate([lower, upper]))
-
-            verts = np.array(verts)[np.isfinite(data)]
-            coll = PolyCollection(verts, array=data[np.isfinite(data)], cmap=cmap, edgecolors='none', **kwargs)
-            if crange:
-                coll.set_clim(*crange)
-            self.ax.add_collection(coll)
-
-        # Smooth contour plotting
-        else:
-            coll = self.contourf(lats, lts, data, cmap=cmap, levels=np.linspace(*crange, nlevels), extend='both', **kwargs)
-
-        # Color bar
-        if cbar:
-            clim = coll.get_clim()
-            cbar = plt.colorbar(coll, ax=self.ax, orientation='vertical', cmap=cmap)
-            cbar.set_clim(*clim)
-            cbar.set_label(r'$\mu$A/m$^2$')
-
-        return coll
 
 
     def coastlines(self, time=None, mag=None, north=True, resolution='50m', **kwargs):
@@ -1064,9 +929,9 @@ class Polarplot(object):
                 if mag is None:  # Geographic local time
                     sslat, sslon = subsol(time)  # Replace with your method to get subsolar lat, lon
                     londiff = (lon - sslon + 180) % 360 - 180
-                    lon = (180. + londiff) / 15.
+                    lon = (180. + londiff)
                 else:  # Magnetic local time
-                    lon = mag.mlon2mlt(lon, time)
+                    lon = mag.mlon2mlt(lon, time) * 15
 
             # Adjust for southern hemisphere
             if not north:
@@ -1075,7 +940,7 @@ class Polarplot(object):
             # Filter and prepare segments
             valid = lat > self.minlat
             lat[~valid], lon[~valid] = np.nan, np.nan
-            x, y = self._latlt2xy(lat, lon)
+            x, y = self._latlt2xy(lat, lon / 15)
             segments.append(np.vstack((x, y)).T)
 
         # Create and add LineCollection
