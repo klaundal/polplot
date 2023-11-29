@@ -1100,6 +1100,8 @@ class Polarplot(object):
             """
             transformed_coord = self._xy2latlt(x, y)
             lat, lt = transformed_coord[::-1]
+            lat = lat[0] if isinstance(lat, np.ndarray) else lat
+            lt = lt[0] if isinstance(lt, np.ndarray) else lt
             string_original = f'x={x:.2f}, y={y:.2f}'
             string_transformed = f'{lt_label}={lt:.2f}, {lat_label}={lat:.2f}'
 
