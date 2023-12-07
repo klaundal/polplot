@@ -130,6 +130,8 @@ class Polarplot(object):
         self.ax.set_axis_off()
 
         self.ax.format_coord= self._create_coordinate_formatter(lt_label, lat_label)
+        self.lat_labels=False
+        self.lt_labels= False
         if plotgrid:
             self.plotgrid(**kwargs)
 
@@ -235,11 +237,10 @@ class Polarplot(object):
         return self.ax.scatter(x, y, **kwargs)
 
 
-    def plotgrid(self, labels = False, **kwargs):
-        """ 
-        Plot local time/latitude grid
+    def plotgrid(self, labels=False, **kwargs):
+        """ plot lt, lat-grid on self.ax
 
-        Parameters
+        parameters
         ----------
         labels: bool
             set to True to include lat/lt labels
@@ -257,8 +258,20 @@ class Polarplot(object):
 
         # add LAT and LT labels to axis
         if labels:
-            returns.append(self.writeLATlabels())
-            returns.append(self.writeLTlabels())
+            if self.lt_labels:
+                try:
+                    for label in self.lt_labels:
+                        label.remove()
+                except:
+                    pass
+            if self.lat_labels:
+                try:
+                    for label in self.lat_labels:
+                        label.remove()
+                except:
+                    pass
+            self.lat_labels= self.writeLATlabels()
+            self.lt_labels=self.writeLTlabels()
         return tuple(returns)
 
 
@@ -276,31 +289,37 @@ class Polarplot(object):
         
         if degrees:
             if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                labels.append(self.text(lat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dawn', 'day']:
-                labels.append(self.text(lat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                labels.append(self.text(lat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dusk', 'day']:
-                labels.append(self.text(lat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
         else:
             lt=np.array([0, 24])
             if any(eval(self.ltlims)):
-                labels.append(self.text(lat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 0, '00', verticalalignment = 'top'    , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             lt=6
             if eval(self.ltlims):
-                labels.append(self.text(lat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 6, '06', verticalalignment = 'center' , horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             lt=12
             if eval(self.ltlims):
-                labels.append(self.text(lat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 12, '12', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             lt=18
             if eval(self.ltlims):
-                labels.append(self.text(lat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 18, '18', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+        if self.lt_labels:
+            try:
+                for label in self.lt_labels:
+                    label.remove()
+            except:
+                pass
+        self.lt_labels= labels
+        return labels
 
-            return labels
 
-
-    def writeLATlabels(self, lt=3, rotation=45, color='lightgrey', backgroundcolor='white', zorder=2, **kwargs):
+    def writeLATlabels(self, lt=3, lats=None, rotation=45, color='lightgrey', backgroundcolor='white', zorder=2, **kwargs):
         """
         Write latitude labels at a specified meridian.
 
@@ -334,9 +353,17 @@ class Polarplot(object):
 
         labels = []
 
-        for lat in np.r_[self.minlat:81:10]:
-            labels.append(self.text(lat, lt, f'{lat}°', ignore_plot_limits=False, **label_params))
-
+        if not lats:
+            lats=np.r_[80:self.minlat-1e-12:-10][::-1].astype('int64')
+        for lat in lats:
+            labels.append(self.write(lat, lt, f'{lat}°', ignore_plot_limits = False, **label_params))
+        if self.lat_labels:
+            try:
+                for label in self.lat_labels:
+                    label.remove()
+            except:
+                pass
+        self.lat_labels= labels
         return labels
 
 
