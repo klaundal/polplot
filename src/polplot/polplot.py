@@ -319,7 +319,7 @@ class Polarplot(object):
         return labels
 
 
-    def writeLATlabels(self, lt=3, lats=None, rotation=45, color='lightgrey', backgroundcolor='white', zorder=2, **kwargs):
+    def writeLATlabels(self, lt=3, lats=None, rotation=45, north = True, color='lightgrey', backgroundcolor='white', zorder=2, **kwargs):
         """
         Write latitude labels at a specified meridian.
 
@@ -335,6 +335,8 @@ class Polarplot(object):
             Longitude for placing the labels.
         rotation : int, default 45
             Text rotation angle.
+        north : bool, default True
+            Set to False to add a minus sign for the labels
         color : str, default 'lightgrey'
             Text color. Set to (0, 0, 0, 0) to disable background
         backgroundcolor : str, default 'white'
@@ -353,10 +355,12 @@ class Polarplot(object):
 
         labels = []
 
+        sign = '' if north else '-'
+
         if not lats:
             lats=np.r_[80:self.minlat-1e-12:-10][::-1].astype('int64')
         for lat in lats:
-            labels.append(self.write(lat, lt, f'{lat}°', ignore_plot_limits = False, **label_params))
+            labels.append(self.write(lat, lt, sign + f'{lat}°', ignore_plot_limits = False, **label_params))
         if self.lat_labels:
             try:
                 for label in self.lat_labels:
