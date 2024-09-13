@@ -542,10 +542,10 @@ class Polarplot(object):
 
     def tricontourf(self, lat, lt, f, **kwargs):
         """
-        Wrapper for Matplotlib's contourf function using latitude and local time.
+        Wrapper for Matplotlib's tricontourf function using latitude and local time.
 
-        This function creates filled contour plots (contourf) using positive latitude values and 
-        local time coordinates. It maps these coordinates onto a Cartesian grid suitable for contour plotting.
+        This function creates filled contour plots (tricontourf) using positive latitude values and 
+        local time coordinates.
 
         Parameters
         ----------
@@ -562,11 +562,6 @@ class Polarplot(object):
         -------
         matplotlib.contour.QuadContourSet
             The filled contour plot object.
-
-        Notes
-        -----
-        The function flattens the input arrays and uses a grid interpolation to map the data
-        onto a uniform Cartesian grid for contour plotting. 
         """
 
         xea, yea = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits=True)
