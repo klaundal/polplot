@@ -540,6 +540,40 @@ class Polarplot(object):
         # Plot and return the contour
         return self.ax.contour(xx, yy, gridf, **kwargs)
 
+    def tricontourf(self, lat, lt, f, **kwargs):
+        """
+        Wrapper for Matplotlib's tricontourf function using latitude and local time.
+
+        This function creates filled contour plots (tricontourf) using positive latitude values and 
+        local time coordinates.
+
+        Parameters
+        ----------
+        lat : array_like
+            Array of latitudes [deg] for the contour plot. Must be positive.
+        lt : array_like
+            Array of local times [h] for the contour plot.
+        f : array_like
+            Array of values to contour.
+        **kwargs : dict, optional
+            Additional keyword arguments passed to Matplotlib's contourf function.
+
+        Returns
+        -------
+        matplotlib.contour.QuadContourSet
+            The filled contour plot object.
+        """
+
+        xea, yea = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits=True)
+        mask, _ = self._latlt2xy(lat.flatten(), lt.flatten(), ignore_plot_limits=False)
+        f = f.flatten()
+        flag = np.isfinite(mask) & (~np.isnan(f))
+        xea = xea[flag]
+        yea = yea[flag]
+        f   = f[flag]
+
+        # Plot and return the filled contour
+        return self.ax.tricontourf(xea, yea, f, **kwargs)
 
     def contourf(self, lat, lt, f, **kwargs):
         """
