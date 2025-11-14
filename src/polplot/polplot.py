@@ -51,7 +51,7 @@ rc('font', **{'family': 'sans-serif', 'sans-serif': ['Verdana']})
 rc('text', usetex=True)
 
 class Polarplot(object):
-    def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', lt_label='lt', lat_label='lat', **kwargs):
+    def __init__(self, ax, minlat = 50, plotgrid = True, sector = 'all', lt_label='lt', lat_label='lat', adjustable='box', **kwargs):
         """
         Initialize a Polarplot object for plotting data in polar latitude-local time coordinates.
 
@@ -76,6 +76,9 @@ class Polarplot(object):
             The label used for local time coordinates. Default is 'lt'.
         lat_label : str, optional
             The label used for latitude coordinates. Default is 'lat'.
+        adjustable : str, optional
+            set to either 'box' or 'datalim'. Default is 'box' to suppress warnings. Change to 
+            'datalim' if old scripts that use Polarplot give different-looking results now. 
         **kwargs : dict
             Additional keyword arguments that are passed to the plotting functions for the grid.
             These can include parameters like color, linestyle, etc.
@@ -95,9 +98,13 @@ class Polarplot(object):
         are adapted for the polar latitude-local time coordinate system.
         """
 
+        if adjustable not in ('box', 'datalim'):
+            raise ValueError("adjustable must be 'box' or 'datalim'")
+        self.adjustable = adjustable
+
         self.minlat = minlat # the lower latitude boundary of the plot
         self.ax = ax
-        self.ax.axis('equal')
+        self.ax.set_aspect('equal', adjustable=self.adjustable)
         self.sector = sector
 
         if 'linewidth' not in kwargs.keys():
@@ -159,7 +166,6 @@ class Polarplot(object):
             array of local times [hours]
 
         """
-
         x, y = self._latlt2xy(lat, lt)
         return self.ax.plot(x, y, **kwargs)
 
