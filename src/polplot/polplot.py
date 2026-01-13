@@ -449,7 +449,7 @@ class Polarplot(object):
         return tuple(returns)
 
 
-    def quiver(self, lat, lt, poleward, eastward, rotation=0, qkeyproperties=None, **kwargs):
+    def quiver(self, lat, lt, poleward, eastward, mag=None, rotation=0, qkeyproperties=None, **kwargs):
         """
         Wrapper for Matplotlib's quiver function for latitude/local time coordinates.
 
@@ -466,6 +466,8 @@ class Polarplot(object):
             Poleward component of each vector.
         eastward : array_like
             Eastward component of each vector.
+        mag : array_like
+            The magnitude of the vectors, used for coloring.
         rotation : float, optional
             Rotation angle for the vectors, in radians. Default is 0.
         qkeyproperties : dict or None, optional
@@ -494,8 +496,11 @@ class Polarplot(object):
         x, y = self._latlt2xy(lat, lt)
         dx, dy = R.dot(self._northEastToCartesian(poleward, eastward, lt))
 
-        q = self.ax.quiver(x, y, dx, dy, **kwargs)
-
+        if mag is not None:
+            q = self.ax.quiver(x, y, dx, dy, mag, **kwargs)
+        else:
+            q = self.ax.quiver(x, y, dx, dy, **kwargs)
+            
         if qkeyproperties is not None:
             qkeykwargs = {'X': .8, 'Y': .9, 'labelpos': 'E'}
             qkeykwargs.update(qkeyproperties)
