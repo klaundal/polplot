@@ -295,13 +295,13 @@ class Polarplot(object):
         
         if degrees:
             if self.sector in ['all', 'night', 'dawn', 'dusk']:
-                labels.append(self.write(lat, 0,    '0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 0,    r'0$^\circ$', verticalalignment = 'top'   , horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dawn', 'day']:
-                labels.append(self.write(lat, 6,   '90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 6,   r'90$^\circ$', verticalalignment = 'center', horizontalalignment = 'left'  , ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'dusk', 'dawn', 'day']:
-                labels.append(self.write(lat, 12, '180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 12, r'180$^\circ$', verticalalignment = 'bottom', horizontalalignment = 'center', ignore_plot_limits=True, **kwargs))
             if self.sector in ['all', 'night', 'dusk', 'day']:
-                labels.append(self.write(lat, 18, '-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
+                labels.append(self.write(lat, 18, r'-90$^\circ$', verticalalignment = 'center', horizontalalignment = 'right' , ignore_plot_limits=True, **kwargs))
         else:
             lt=np.array([0, 24])
             if any(eval(self.ltlims)):
